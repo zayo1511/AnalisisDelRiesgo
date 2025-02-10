@@ -1,0 +1,1 @@
+"0","hist(precio, n=100, col=""cornflowerblue"", main=""Histograma del precio"", prob=TRUE)"

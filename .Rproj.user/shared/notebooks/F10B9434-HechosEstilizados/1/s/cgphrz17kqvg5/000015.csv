@@ -1,0 +1,5 @@
+"0","n <- 1000"
+"0","So <- 25"
+"0","epsilon <- rnorm(n)"
+"0","St <- So + cumsum(epsilon)"
+"0","plot(St, type=""l"", xlab=""Día"", ylab=""Valor"", col=""cornflowerblue"", main=""Caminata Aleatoria"")"

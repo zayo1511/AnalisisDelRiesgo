@@ -1,0 +1,2 @@
+"0","rt <- na.omit(diff(log(precio)))"
+"0","hist(rt, n=100, col=""cornflowerblue"", main=""Histograma del rendimiento"", prob=TRUE)"

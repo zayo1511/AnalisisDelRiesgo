@@ -1,0 +1,2 @@
+"0","xval <- seq(min(rt), max(rt), length.out=100)"
+"0","lines(xval, dnorm(xval, mean=mean(rt), sd=sd(rt)), col=""darkseagreen"", lwd=2)"

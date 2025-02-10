@@ -1,0 +1,2 @@
+"0","xval <- seq(min(precio), max(precio), length.out=100)"
+"0","lines(xval, dnorm(xval, mean=mean(precio), sd=sd(precio)), col=""darkseagreen"", lwd=2)"

@@ -1,0 +1,2 @@
+"0","mensual <- to.monthly(precio)"
+"0","chartSeries(mensual, theme=""white"", main=ticker)"
