@@ -89,9 +89,9 @@ jarque.test(as.numeric(rt))
 
 *P-value*: Probabilidad de comoter error tipo I (rechazo $H_0$ cuando es verdadera)
 
-Ya que P-value $\approx$ 0 se rechaza $H_0$. No hay información suficiente para aceptar la normalidad de los datos (no se distribuyen normalmente). 
+Ya que P-value $\approx$ 0 se rechaza $H_0$. No hay información suficiente para aceptar la normalidad de los datos (no se distribuyen normalmente). Por convencionalidad, asumimos que los rendimientos si son normales, ya que es la distribución a la que más se parece.
 
-¿Por qué? Porque presentan leptocurtosis, es decir un exceso de curtosis respecto a lo que es normal
+¿Por qué? Porque presentan leptocurtosis, es decir un exceso de curtosis respecto a lo que es normal.
 
 Esta prueba compara la distribución de lo datos con los de una normal. La normal tiene 2 características:
 - sesgo 0
@@ -101,4 +101,27 @@ Esta prueba compara la distribución de lo datos con los de una normal. La norma
 skewness(rt)
 kurtosis(rt)
 ```
+
+Comprobando esto con los precios:
+
+```{r}
+jarque.test(as.numeric(precio))
+```
+
+Los precios de un activo no se distribuyen normalmente.
+
+Ahora hagamos la prueba de rendimiento diario promedio igual a 0:
+
+$H_0:$ La media del rendimiento diario es igual a 0
+$H_1$: La media del rendimiento diario es diferente a 0
+
+```{r}
+t.test(as.numeric(rt), mu=0, alternative = "two.sided")
+```
+
+P-value = 0.01711. Dependiendo del nivel de significancia se aceptaría o rechazaría $H_0$. 
+
+La media verdadera no es estadísticamente igual a 0 con un nivel de confianza del 95%
+
+La media verdadera es estadísticamente igual a 0 con un nivel de confianza del 99%
 
