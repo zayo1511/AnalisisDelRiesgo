@@ -2,7 +2,11 @@
 title: "Rendimiento y riesgo"
 author: "Diego Lozoya"
 date: "2025-02-11"
-output: html_document
+output: 
+  html_document:
+    theme: darkly
+    toc: true
+    toc_float: true
 ---
 
 Ya sabemos que los cambios en el precio tienen un comportamiento dado por la EDE
