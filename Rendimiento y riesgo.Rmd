@@ -87,4 +87,18 @@ library(moments)
 jarque.test(as.numeric(rt))
 ```
 
+*P-value*: Probabilidad de comoter error tipo I (rechazo $H_0$ cuando es verdadera)
+
+Ya que P-value $\approx$ 0 se rechaza $H_0$. No hay información suficiente para aceptar la normalidad de los datos (no se distribuyen normalmente). 
+
+¿Por qué? Porque presentan leptocurtosis, es decir un exceso de curtosis respecto a lo que es normal
+
+Esta prueba compara la distribución de lo datos con los de una normal. La normal tiene 2 características:
+- sesgo 0
+- curtosis 3
+
+```{r}
+skewness(rt)
+kurtosis(rt)
+```
 
