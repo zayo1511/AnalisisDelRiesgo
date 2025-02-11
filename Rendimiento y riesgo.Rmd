@@ -1,0 +1,66 @@
+---
+title: "Rendimiento y riesgo"
+author: "Diego Lozoya"
+date: "2025-02-11"
+output: html_document
+---
+
+Ya sabemos que los cambios en el precio tienen un comportamiento dado por la EDE
+
+$$ds=S\mu dt+S\sigma dW$$
+
+Los valores de los parámetros $\mu, \sigma$ dependen del tiempo, por lo que debemos definir si serán diarios, anualizados o que características vamos a considerar.
+
+```{r}
+library(quantmod)
+library(lubridate)
+clave <- "GFNORTEO.MX"
+datos <- new.env()
+
+getSymbols(clave, from="2000-01-02", to=today(), env=datos)
+precio <- datos[[clave]][,6]
+
+plot(precio, type="l", ylab="Precio", col="cornflowerblue", main=clave)
+```
+
+Nuestro análisis es sobre el rendimiento
+
+```{r}
+rt <- na.omit(diff(log(precio)))
+plot(rt, col="cornflowerblue")
+```
+
+Deciamos que los parámetros dependen del tiempo, primero consideramos los datos históricos, es decir todos los que existen.
+
+```{r}
+mu_di_hist <- mean(rt)
+sigma_di_hist <- sd(rt)
+
+mu_di_hist
+sigma_di_hist
+```
+
+Estos parámetros podemos anualizarlos para que tengan una mejor interprectación
+
+```{r}
+mu_anual_hist <- mu_di_hist*252
+mu_anual_hist
+```
+
+```{r}
+sigma_anual_hist <- sigma_di_hist*sqrt(252)
+sigma_anual_hist
+```
+
+Vamos a calcular estos mismos parámetros, para cada uno de los años de información que tenemos
+
+```{r}
+library(dplyr)
+tabla <- rt %>% 
+  as_tibble() %>% 
+  mutate(year=year(rt)) %>% 
+  group_by(year) %>% 
+  summarise("Ren_diario"=mean(rt),
+            "Vol-diaria"=sd(rt))
+```
+
