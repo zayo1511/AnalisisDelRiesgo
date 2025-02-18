@@ -47,5 +47,22 @@ plot(St1, type="l", col="cornflowerblue")
 grid()
 ```
 
+Vamos a hacer múltiples simulaciones de este comportamiento
 
+```{r}
+sim <- 1000000
+Pfinal <- numeric(sim) # guardaremos el precio final de cada simulación
+
+for (i in 1:sim) {
+  W <- c(0, cumsum(sqrt(dt)*rnorm(251)))
+  St1 <- S0*exp((mu-0.5*sigma^2)*t+sigma*W)
+  Pfinal[i] <- St1[252]
+}
+```
+
+La distribución de probabilidad del precio para dentro de un año con un millon de simulaciones es:
+
+```{r}
+hist(Pfinal, n=100, col="cornflowerblue", main="Histograma para el precio en un año")
+```
 
