@@ -13,7 +13,27 @@ output:
 
 Explicacion del modelo y transformacion para generar regresion lineal y que explica la regresion
 
-$$R_j - R_f=\alpha+\beta(R_m-R_j)+\nu$$
+El Modelo CAPM describe la relación existente entre rendimiento y volatilidad. Esta se presenta como una frontera de posibilidades de inversión eficientes.
+
+CAPM parte de la ecuación:
+
+$$E[R_j]=R_f + \lambda\frac{Cov[R_j,R_m]}{\sigma_{RM}}\text{ }(1)$$
+
+en donde $\lambda$ representa la prima de riesgo de mercado por unidad de riesgo, y se calcula como:
+
+$$\lambda = \frac{E[R_M] - R_f}{\sigma_{RM}}\text{ }(2)$$
+
+Sustituyendo $(2)$ en $(1)$:
+
+$$E[R_j]=R_f + \beta(E[R_M-R_f])\text{ }(3)$$
+
+En donde $\beta=\frac{Cov[R_j,R_M]}{\sigma_{RM}^2}$
+
+La ecuación se reescribe como el diferencial de rendimientos entre activo y libre de riesgo, de modo que:
+
+$$R_j - R_f=\alpha+\beta(R_m-R_j)+\epsilon_t\text{ }(4)$$
+
+# Ejercicio
 
 Para estimar el modelo necesitamos 3 cosas:
 
@@ -23,6 +43,8 @@ Para estimar el modelo necesitamos 3 cosas:
 
 Usaremos los últimos 5 años de información
 
+## Datos Activo
+
 ```{r}
 library(quantmod)
 clave <- "GFNORTEO.MX"
@@ -31,12 +53,16 @@ getSymbols(clave, from="2020-01-01", to="2025-02-01", env=datos)
 precio_j <- datos[[clave]][,6]
 ```
 
+## Datos Mercado
+
 El IPC
 
 ```{r}
 getSymbols("^MXX", from="2020-01-01", to="2025-02-01", env=datos)
 precio_m <- datos[["MXX"]][,6]
 ```
+
+## Rendimientos Activo y Mercado
 
 Para el modelo se consideran los rendimientos mensuales.
 
@@ -53,6 +79,8 @@ names(r_m) <- "Mercado"
 
 plot(merge.xts(r_j, r_m), main="Comportamiento del mercado y del activo", legend.loc = "bottom")
 ```
+
+## Rendimiento Libre de Riesgo
 
 Cargar la tasa de CETES
 
