@@ -1,0 +1,70 @@
+---
+title: "CAPM"
+author: "Diego Lozoya"
+date: "2025-02-21"
+output: 
+  html_document:
+    theme: darkly
+    toc: true
+    toc_float: true
+---
+
+# Explicación
+
+Explicacion del modelo y transformacion para generar regresion lineal y que explica la regresion
+
+$$R_j - R_f=\alpha+\beta(R_m-R_j)+\nu$$
+
+Para estimar el modelo necesitamos 3 cosas:
+
+1) Rendimiento de un activo (j)
+2) Rendimiento del mercado IPC (m)
+3) Rendimiento de la tasa libre de riesgo (f)
+
+Usaremos los últimos 5 años de información
+
+```{r}
+library(quantmod)
+clave <- "GFNORTEO.MX"
+datos <- new.env()
+getSymbols(clave, from="2020-01-01", to="2025-02-01", env=datos)
+precio_j <- datos[[clave]][,6]
+```
+
+El IPC
+
+```{r}
+getSymbols("^MXX", from="2020-01-01", to="2025-02-01", env=datos)
+precio_m <- datos[["MXX"]][,6]
+```
+
+Para el modelo se consideran los rendimientos mensuales.
+
+```{r}
+precio_j <- to.monthly(precio_j)[,4]
+precio_m <- to.monthly(precio_m)[,4]
+```
+
+```{r}
+r_j <- monthlyReturn(precio_j)
+r_m <- monthlyReturn(precio_m)
+names(r_j) <- "Activo"
+names(r_m) <- "Mercado"
+
+plot(merge.xts(r_j, r_m), main="Comportamiento del mercado y del activo", legend.loc = "bottom")
+```
+
+Cargar la tasa de CETES
+
+```{r}
+library(readxl)
+r_f <- read_xlsx("TasaCetes.xlsx")
+r_f$SF43936 <- (r_f$SF43936/100/12)
+r_f <- as.xts(r_f$SF43936, order.by = r_f$Fecha)
+
+r_f <- to.monthly(r_f)[,1]
+```
+
+
+
+
