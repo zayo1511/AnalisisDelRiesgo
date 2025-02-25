@@ -49,7 +49,7 @@ Usaremos los últimos 5 años de información
 library(quantmod)
 clave <- "GFNORTEO.MX"
 datos <- new.env()
-getSymbols(clave, from="2020-01-01", to="2025-02-01", env=datos)
+getSymbols(clave, from="2020-02-01", to="2025-02-01", env=datos)
 precio_j <- datos[[clave]][,6]
 ```
 
@@ -74,6 +74,7 @@ precio_m <- to.monthly(precio_m)[,4]
 ```{r}
 r_j <- monthlyReturn(precio_j)
 r_m <- monthlyReturn(precio_m)
+
 names(r_j) <- "Activo"
 names(r_m) <- "Mercado"
 
@@ -90,9 +91,75 @@ r_f <- read_xlsx("TasaCetes.xlsx")
 r_f$SF43936 <- (r_f$SF43936/100/12)
 r_f <- as.xts(r_f$SF43936, order.by = r_f$Fecha)
 
-r_f <- to.monthly(r_f)[,1]
+r_f <- to.monthly(r_f)[,4]
 ```
 
+## Regresión
+
+Vamos a construir las variables de excedente de rendimiento del activo y mercado, par hacer la regresión
+
+```{r}
+E_jf <- r_j - r_f
+E_mf <- r_m - r_f
+```
+
+Ahora si hacemos la regresion
+
+```{r}
+lm(E_jf~E_mf)
+```
+
+```{r}
+CAPM <- lm(E_jf~E_mf)
+summary(CAPM)
+```
+
+## Interpretacion
+
+Vamos a interpretar los resultados de la regresión
+
+- $R^2$: Representa el % de riesgo sistemático que hay en el activo
+
+```{r}
+resultados <- summary(CAPM)
+resultados$r.squared
+```
+
+En este caso el activo tiene un percentaje de riesgo sistemático del 52.18%
+
+Se considera que cuando el riesgo istemático es mayor al 65% entonces hay señal de alarma
+
+- $1-R^2$: Porcentaje de riesgo no sistemático
+
+```{r}
+1 - resultados$r.squared
+```
+
+Los residuales de la regresión representan todo aquello que el modelo no es capaz de explicar, es decir todo lo que hace que la variable dependiente cambie (excedente del activo) y que no es explicado por la variable independiente (excedente del mercado)
+
+El **riesgo** total está dado por:
+
+```{r}
+(resultados$sigma^2) / (1-resultados$r.squared) * 100
+```
+
+Para este activo el riesgo total es de 0.8631% de su valor, lo que significa por ejemplo que si el activo vale hoy $143.84 el riesgo es que se pierda el 0.8631% de ese valor.
+
+Este riesgo total se divide en 2:
+- Riesgo sistemático
+_ Riesgo no sistemático
+
+Sistemático
+
+```{r}
+0.8631*resultados$r.squared
+```
+
+No sistemático
+
+```{r}
+0.8631*(1-resultados$r.squared)
+```
 
 
 
