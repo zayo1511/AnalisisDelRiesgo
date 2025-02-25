@@ -58,7 +58,7 @@ precio_j <- datos[[clave]][,6]
 El IPC
 
 ```{r}
-getSymbols("^MXX", from="2020-01-01", to="2025-02-01", env=datos)
+getSymbols("^MXX", from="2020-02-01", to="2025-02-01", env=datos)
 precio_m <- datos[["MXX"]][,6]
 ```
 
@@ -161,5 +161,18 @@ No sistemático
 0.8631*(1-resultados$r.squared)
 ```
 
+## Tabla de resultados
 
+```{r}
+library(tibble)
+
+tabla <- tibble(
+  "Alpha"=resultados$coefficients[1],
+  "Beta"=resultados$coefficients[2],
+  "%RS"=resultados$r.squared * 100,
+  "%RNS"=(1-resultados$r.squared) * 100,
+  "Riesgo Sistemático"=(resultados$sigma^2) / (1-resultados$r.squared) * 100 * resultados$r.squared,
+  "Riesgo no Sistemático"=(resultados$sigma^2) / (1-resultados$r.squared) * 100 * (1-resultados$r.squared)
+)
+```
 
