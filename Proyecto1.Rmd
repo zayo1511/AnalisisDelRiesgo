@@ -1,0 +1,18 @@
+---
+title: "Proyecto1"
+author: "DLM"
+date: "2025-01-31"
+output: html_document
+---
+
+# Introducción
+
+Aqui voy a poner el texto que yo quiera
+
+**Negaritas**
+
+*Cursivas*
+
+## Historia
+
+### Reciente

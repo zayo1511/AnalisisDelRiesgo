@@ -1,0 +1,92 @@
+---
+title: "Proyecto Final: Parte 2"
+author: "Rolando Fortanell Canedo
+         Luis Eduardo Jiménez del Muro
+         Diego Lozoya Morales
+         Lenin Adair Quezada Gómez"
+date: "2025-03-07"
+output: 
+  html_document:
+    theme: darkly
+    toc: true
+    toc_float: true
+---
+
+```{r}
+suppressPackageStartupMessages(library(quantmod))
+suppressPackageStartupMessages(library(lubridate))
+suppressPackageStartupMessages(library(readxl))
+suppressPackageStartupMessages(library(dplyr))
+```
+
+# Datos
+
+```{r}
+clave <- "GCC.MX"
+datos <- new.env()
+
+getSymbols(clave, to="2024-12-31", env=datos)
+
+PIB <- read_xlsx("CrecimientoPIB.xlsx")
+PIB$Year <- as.Date(paste0(PIB$Year, "-12-31"))
+PIB$PorcentualAnnuealGrowthRate <- PIB$PorcentualAnnuealGrowthRate/100
+PIB <- xts(PIB$PorcentualAnnuealGrowthRate, order.by = PIB$Year)
+```
+
+# Gráficas
+
+## Precio
+
+```{r}
+precio <- datos[[clave]][,6]
+plot(precio, type="l", ylab="Precio", col="cornflowerblue", main=clave)
+```
+
+## Rendimiento
+
+```{r}
+rt <- na.omit(diff(log(precio)))
+plot(rt, col="cornflowerblue")
+```
+
+# Comparación rendimiento GCC compuesto y tasa de crecimiento del PIB en México compuesto
+
+## Rendimiento GCC
+
+```{r}
+rt_anual <- yearlyReturn(precio)
+
+plot(rt_anual, type="l", ylab="Rendimiento", col="cornflowerblue", main="Rendimiento anual de GCC")
+```
+
+## Tasa de crecimiento del PIB en México
+
+```{r}
+PIB2024 <- xts(
+  x = 0.0124,
+  order.by = as.Date("2024-12-31")
+)
+
+PIB <- rbind(PIB, PIB2024)
+
+plot(PIB, type="l", ylab="Crecimiento", col="cornflowerblue", main="Tasa de crecimiento del PIB en México")
+```
+
+## Comparacion
+
+```{r}
+PIB_compusto <- cumprod(1+PIB)
+rt_compusto <- cumprod(1+rt_anual)
+
+names(PIB_compusto) <- "PIB"
+names(rt_compusto) <- "GCC"
+
+plot(merge.xts(PIB_compusto, rt_compusto), type="l", main="Comparación rendimiento GCC y tasa de crecimiento del PIB en México compuestos", 
+     col=c("cornflowerblue", "indianred"), legend.loc = "bottom")
+```
+
+# Referencias
+
+- El País. (2025, 21 de febrero). La economía de México creció 1.2% en 2024, su peor desempeño desde 2020. El País. Recuperado de https://elpais.com/mexico/2025-02-21/la-economia-de-mexico-crecio-12-en-2024-su-peor-desempeno-desde-2020.html#:~:text=PIB:%20La%20econom%C3%ADa%20de%20M%C3%A9xico,EL%20PA%C3%8DS%20M%C3%A9xico
+- Banco Mundial. (s.f.). Crecimiento del PIB (anual) (%). Recuperado de https://datos.bancomundial.org/indicador/NY.GDP.MKTP.KD.ZG?locations=MX
+

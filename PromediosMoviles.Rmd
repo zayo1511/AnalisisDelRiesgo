@@ -1,0 +1,131 @@
+---
+title: "PromedioMovil"
+author: "Diego Lozoya"
+date: "2025-03-04"
+output: html_document
+---
+
+Estimación de un modelo de promedio movil para estimar la varianza
+
+**características promedio movil**
+
+# Ecuación:
+
+$$\sigma_{t,m}=\sum_{i=1}^m R_{t-i}^2$$
+
+# Librerías
+
+```{r}
+suppressPackageStartupMessages(library(quantmod))
+suppressPackageStartupMessages(library(lubridate))
+suppressPackageStartupMessages(library(TTR))
+suppressPackageStartupMessages(library(tibble))
+
+colors <- c("cornflowerblue", "indianred", "darkseagreen", "plum", "dimgray")
+```
+
+# Data
+
+```{r}
+clave <- "GFNORTEO.MX"
+datos <- new.env()
+
+getSymbols(clave, env=datos)
+precio <- datos[[clave]][,6]
+
+plot(precio, type="l", ylab="Precio", col=colors[1], main=paste("Precio", clave))
+
+rt <- na.omit(diff(log(precio)))
+plot(rt, col=colors[1], main=paste("Rendimiento", clave))
+```
+
+# Modelo
+
+## Rendimeinto al cuadrado
+
+```{r}
+rt_C <- rt^2
+
+plot(rt_C, col=colors[1], main=paste("Rendimiento cuadrado", clave))
+```
+
+El rendimiento cuadrado constituye la estimación más sencilla de la varianza
+
+## Promedio movil por diferentes m
+
+```{r}
+Var_5 <- SMA(rt_C, n=5+1)
+Var_10 <- SMA(rt_C, n=10+1)
+Var_20 <- SMA(rt_C, n=20+1)
+Var_40 <- SMA(rt_C, n=40+1)
+```
+
+Antes de decidir quien es M, vamos a graficar las estimaciones y varianza de cada modelo (4 promedios moviles, con diferentes valores de m)
+
+## Gráficas
+
+```{r}
+layout(matrix(c(1,2)))
+plot(Var_5, col=colors[1], main="Promedio movil con m=5")
+plot(rt_C, col=colors[2], main=paste("Rendimiento cuadrado", clave))
+
+layout(matrix(c(1,2)))
+plot(Var_10, col=colors[1], main="Promedio movil con m=10")
+plot(rt_C, col=colors[2], main=paste("Rendimiento cuadrado", clave))
+
+layout(matrix(c(1,2)))
+plot(Var_20, col=colors[1], main="Promedio movil con m=20")
+plot(rt_C, col=colors[2], main=paste("Rendimiento cuadrado", clave))
+
+layout(matrix(c(1,2)))
+plot(Var_40, col=colors[1], main="Promedio movil con m=40")
+plot(rt_C, col=colors[2], main=paste("Rendimiento cuadrado", clave))
+```
+
+## Errores
+
+Para seleccionar el mejor valor de m, que produzca el menor error, usaremos tres indicadores:
+
+### RMSE
+
+$$\sqrt{\frac{1}{H}\sum_{i=1}^n(R_i^2-\sigma^2)^2}$$
+
+**Fórmula RMSE y que mide**
+
+```{r}
+RMSE <- tibble(
+    "m=5" = sqrt(mean(na.omit(rt_C-Var_5)^2)),
+    "m=10" = sqrt(mean(na.omit(rt_C-Var_10)^2)),
+    "m=20" = sqrt(mean(na.omit(rt_C-Var_20)^2)),
+    "m=40" = sqrt(mean(na.omit(rt_C-Var_40)^2))
+)
+
+RMSE
+```
+
+Con base en el RMSE el mejor modelo es con $m=5$.
+
+### EAMP
+
+$$\frac{1}{H}\sum_{i=1}^n|R_i^2-\sigma^2|$$
+
+```{r}
+EAMP <- tibble(
+    "m=5" = mean(abs(na.omit(rt_C-Var_5))),
+    "m=10" = mean(abs(na.omit(rt_C-Var_10))),
+    "m=20" = mean(abs(na.omit(rt_C-Var_20))),
+    "m=40" = mean(abs(na.omit(rt_C-Var_40)))
+)
+
+EAMP
+```
+
+Con base en el EAMP el mejor modelo es con $m=5$.
+
+### ECPP
+
+
+
+
+
+

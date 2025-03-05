@@ -1,0 +1,458 @@
+---
+title: "HW6"
+author: "Diego Lozoya"
+date: "2025-03-04"
+output: 
+  html_document:
+    theme: darkly
+    toc: true
+    toc_float: true
+---
+
+# Librerías
+
+```{r}
+suppressPackageStartupMessages(library(quantmod))
+suppressPackageStartupMessages(library(lubridate))
+
+colors <- c("cornflowerblue", "indianred", "darkseagreen", "plum", "dimgray")
+```
+
+# 1) $P(S_t<S_0)$
+
+## Data
+
+```{r}
+clave <- "BIMBOA.MX"
+datos <- new.env()
+
+getSymbols(clave, from="2024-02-01", to="2025-02-01", env=datos)
+precio <- datos[[clave]][,6]
+
+plot(precio, type="l", ylab="Precio", col=colors[1], main=paste("Precio", clave))
+
+rt <- na.omit(diff(log(precio)))
+plot(rt, col=colors[1], main=paste("Rendimiento", clave))
+```
+
+### Parámetros
+
+```{r}
+mu <-  mean(rt)*252
+sigma <-  sd(rt)*sqrt(252)
+S0 <- as.numeric(tail(precio, 1))
+T <- 5/252 #En años
+dt <- T/(T*252)
+t <- seq(0, T, length.out=(T*252+1))
+
+mu
+sigma
+```
+
+## Cáluclo empírico
+
+### Simulación $S_t$
+
+```{r}
+sim <- 1000000
+Pfinal <- numeric(sim)
+
+for (i in 1:sim) {
+  W <- c(0, cumsum(sqrt(dt)*rnorm(T*252)))
+  St1 <- S0*exp((mu-0.5*sigma^2)*t+sigma*W)
+  Pfinal[i] <- St1[(T*252+1)]
+}
+
+mean(Pfinal<S0)
+```
+
+### Simulación $ds$
+
+```{r}
+sim <- 1000000
+Pfinal <- numeric(sim)
+
+for (i in 1:sim) {
+  W <- c(0, cumsum(sqrt(dt)*rnorm(T*252)))
+  ds <- S0*mu*t+S0*sigma*W
+  Pfinal[i] <- ds[(T*252+1)]
+}
+
+mean(Pfinal<0)
+```
+
+## Cálculo teórico
+
+### $S_t$
+
+$$ln(S_t)=ln(S_0)+(\mu-\frac{1}{2}\sigma^2)dt+\sigma dW$$
+$$=ln(54.3)+(-0.3586-\frac{1}{2}(0.3095)^2)\frac{5}{252}+0.3095\epsilon\sqrt{\frac{5}{252}}$$
+$$=3.9864+0.0436\epsilon$$
+
+$$E[ln(S_t)]=3.9864$$
+$$V[ln(S_t)]=0.0436^2=0.0019$$
+
+$$P(S_t<S_0)=0.5739$$
+
+### $ds$
+
+$$ds=s\mu dt + s\sigma dW$$
+$$=54.3(-0.3586)\frac{5}{252}+54.3(0.3095)\epsilon\sqrt{\frac{5}{252}}$$
+$$=-0.3863+2.3672\epsilon$$
+
+$$E[ds]=-0.3863$$
+$$V[ds]=54.3^20.3095^2\frac{5}{252}=5.6039$$
+
+$$P(ds<0)=0.5648$$
+
+## Comparación
+
+Tanto en el cálculo empírico como en el teórico, son muy similares las respuestas sobre $ln(S_t)$ y $ds$. Los resultados se presentan de la siguiente manera
+
+- $ln(S_t)$:
+  - Empírico: 0.5726
+  - Teórico: 0.5739
+- $ds$:
+  - Empírico: 0.5643
+  - Teórico: 0.5648
+  
+Las diferencias en los resultados entre empírico y teórico pueden deberse a la cantidad de decimales utilizados en el cálculo teórico y al número de simulaciones.
+
+# 2) Probabilidades a un año
+
+## Parámetros
+
+```{r}
+T <- 252/252 #En años
+dt <- T/(T*252)
+t <- seq(0, T, length.out=(T*252+1))
+```
+
+## Cáluclo empírico
+
+### Simulación $S_t$
+
+```{r}
+sim <- 1000000
+Pfinal <- numeric(sim)
+
+for (i in 1:sim) {
+  W <- c(0, cumsum(sqrt(dt)*rnorm(T*252)))
+  St1 <- S0*exp((mu-0.5*sigma^2)*t+sigma*W)
+  Pfinal[i] <- St1[(T*252+1)]
+}
+
+mean(Pfinal<S0)
+```
+
+### Simulación $ds$
+
+```{r}
+sim <- 1000000
+Pfinal <- numeric(sim)
+
+for (i in 1:sim) {
+  W <- c(0, cumsum(sqrt(dt)*rnorm(T*252)))
+  ds <- S0*mu*t+S0*sigma*W
+  Pfinal[i] <- ds[(T*252+1)]
+}
+
+mean(Pfinal<0)
+```
+
+## Cálculo teórico
+
+### $S_t$
+
+$$ln(S_t)=ln(S_0)+(\mu-\frac{1}{2}\sigma^2)dt+\sigma dW$$
+$$=ln(54.3)+(-0.3586-\frac{1}{2}(0.3095)^2)\frac{252}{252}+0.3095\epsilon\sqrt{\frac{252}{252}}$$
+$$=ln(54.3)+(-0.3586-\frac{1}{2}(0.3095)^2)+0.3095\epsilon$$
+$$=3.5880+0.3095\epsilon$$
+
+$$E[ln(S_t)]=3.5880$$
+$$V[ln(S_t)]=0.3095^2=0.0958$$
+
+$$P(S_t<S_0)=0.9055$$
+
+### $ds$
+
+$$ds=s\mu dt + s\sigma dW$$
+$$=54.3(-0.3586)\frac{252}{252}+54.3(0.3095)\epsilon\sqrt{\frac{252}{252}}$$
+$$=54.3(-0.3586)+54.3(0.3095)\epsilon$$
+$$=-19.4720+16.8058\epsilon$$
+
+$$E[ds]=-19.4720$$
+$$V[ds]=54.3^20.3095^2\frac{252}{252}=282.4366$$
+
+$$P(ds<0)=0.8767$$
+
+## Comparación
+
+Tanto en el cálculo empírico como en el teórico, son muy similares las respuestas sobre $ln(S_t)$ y $ds$. Los resultados se presentan de la siguiente manera
+
+- $ln(S_t)$:
+  - Empírico: 0.9053
+  - Teórico: 0.9055
+- $ds$:
+  - Empírico: 0.8765
+  - Teórico: 0.8767
+  
+Las diferencias en los resultados entre empírico y teórico pueden deberse a la cantidad de decimales utilizados en el cálculo teórico y al número de simulaciones.
+
+# 3) Comparacón ecuaciones en horizontes de tiempo
+
+## 5 días
+
+- $ln(S_t)$:
+  - Empírico: 0.5726
+  - Teórico: 0.5739
+- $ds$:
+  - Empírico: 0.5643
+  - Teórico: 0.5648
+
+## 1 año
+
+- $ln(S_t)$:
+  - Empírico: 0.9053
+  - Teórico: 0.9055
+- $ds$:
+  - Empírico: 0.8765
+  - Teórico: 0.8767
+  
+## Conclusión
+
+Se puede observar que tanto en las probabilidades empíricas, como en las teóricas, el resultado tanto con la ecuación $ln(S_t)$, como $ds$ son muy similares. Los resultados no son exactamente iguales, lo que puede deberse al número de decimales usado o a la cantidad de simulaciones utilizadas.
+
+Por lo visto en clase, se sabe que que cuando el horizanto de tiempo es menor a 1 mes, se utiliza la ecuación $ds$. Por el contrario, si el horionte es mayor a 1 mes se usa generalmente la ecuación de $ln(S_t)$, ya que es menos probable que se aleje del resultado real en horizontes grandes, en cuanto a magnitud.
+
+# 4) $P(S_t>18)$
+
+## Probabilidades teóricas
+
+### $ln(S_t)$
+
+#### 1 año
+
+$$ln(S_t)=ln(S_0)+(\mu-\frac{1}{2}\sigma^2)dt+\sigma dW$$
+$$=ln(15)+(0.15-\frac{1}{2}(0.65)^2)\frac{252}{252}+0.65\epsilon\sqrt{\frac{252}{252}}$$
+$$=2.6468 + 0.65\epsilon$$
+
+$$P(S_t>18)=0.3539$$
+
+#### 6 meses
+
+$$ln(S_t)=ln(S_0)+(\mu-\frac{1}{2}\sigma^2)dt+\sigma dW$$
+$$=ln(15)+(0.15-\frac{1}{2}(0.65)^2)\frac{1}{2}+0.65\epsilon\sqrt{\frac{1}{2}}$$
+$$=2.6774 + 0.4596\epsilon$$
+
+$$P(S_t>18)=0.3215$$
+
+#### 1 mes
+
+$$ln(S_t)=ln(S_0)+(\mu-\frac{1}{2}\sigma^2)dt+\sigma dW$$
+$$=ln(15)+(0.15-\frac{1}{2}(0.65)^2)\frac{1}{12}+0.65\epsilon\sqrt{\frac{1}{12}}$$
+$$=2.7029 + 0.1876\epsilon$$
+
+$$P(S_t>18)=0.1588$$
+
+### $ds$
+
+#### 1 año
+
+$$ds=s\mu dt + s\sigma dW$$
+$$=15(0.15)\frac{252}{252}+15(0.65)\epsilon\sqrt{\frac{252}{252}}$$
+$$=2.25+9.75\epsilon$$
+
+$$P(ds>3)=0.4693$$
+
+#### 6 meses
+
+$$ds=s\mu dt + s\sigma dW$$
+$$=15(0.15)\frac{1}{2}+15(0.65)\epsilon\sqrt{\frac{1}{2}}$$
+$$=1.125+6.8943\epsilon$$
+
+$$P(ds>3)=0.3928$$
+
+#### 1 mese
+
+$$ds=s\mu dt + s\sigma dW$$
+$$=15(0.15)\frac{1}{12}+15(0.65)\epsilon\sqrt{\frac{1}{12}}$$
+$$=0.1875+2.8146\epsilon$$
+
+$$P(ds>3)=0.1588$$
+
+## Parámetros
+
+```{r}
+mu <- 0.15
+sigma <- 0.65
+S0 <- 15
+T <- c(252/252, (252/2)/252, (252/12)/252) #En años
+dt <- T/(T*252)
+t_list <- lapply(T, function(Ti) seq(0, Ti, length.out = (Ti*252+1)))
+```
+
+## Probabilidades empíricas
+
+### $ln(S_t)$
+
+```{r}
+sim <- 1000000
+Pfinal <- matrix(0, nrow = sim, ncol = length(T))  # Matriz para almacenar resultados
+colnames(Pfinal) <- c("1Year", "6Months", "1Month")  # Nombres de columnas
+
+for (i in 1:sim) {
+  for (j in 1:length(T)) {
+    W <- c(0, cumsum(sqrt(dt[j]) * rnorm(T[j]*252)))
+    St1 <- S0 * exp((mu - 0.5 * sigma^2) * t_list[[j]] + sigma * W)
+    Pfinal[i, j] <- St1[length(St1)]
+  }
+}
+
+Pfinal_1year <- Pfinal[, 1]
+Pfinal_6months <- Pfinal[, 2]
+Pfinal_1month <- Pfinal[, 3]
+
+mean(Pfinal_1year>18)
+mean(Pfinal_6months>18)
+mean(Pfinal_1month>18)
+```
+
+### $ds$
+
+```{r}
+sim <- 1000000
+Pfinal <- matrix(0, nrow = sim, ncol = length(T))  # Matriz para almacenar resultados
+colnames(Pfinal) <- c("1Year", "6Months", "1Month")  # Nombres de columnas
+
+for (i in 1:sim) {
+  for (j in 1:length(T)) {
+    W <- c(0, cumsum(sqrt(dt[j]) * rnorm(T[j]*252)))
+    ds <- S0*mu*t_list[[j]]+S0*sigma*W
+    Pfinal[i, j] <- ds[length(ds)]
+  }
+}
+
+Pfinal_1year <- Pfinal[, 1]
+Pfinal_6months <- Pfinal[, 2]
+Pfinal_1month <- Pfinal[, 3]
+
+mean(Pfinal_1year>3)
+mean(Pfinal_6months>3)
+mean(Pfinal_1month>3)
+```
+
+## Comparación resultados
+
+### 1 año
+
+- $ln(S_t)$:
+  - Empírico: 0.3539
+  - Teórico: 0.3539
+- $ds$:
+  - Empírico: 0.4698
+  - Teórico: 0.4693
+  
+### 6 meses
+
+- $ln(S_t)$:
+  - Empírico: 0.3212
+  - Teórico: 0.3215
+- $ds$:
+  - Empírico: 0.3928
+  - Teórico: 0.3928
+  
+### 1 mes
+
+- $ln(S_t)$:
+  - Empírico: 0.1591
+  - Teórico: 0.1588
+- $ds$:
+  - Empírico: 0.1585
+  - Teórico: 0.1588
+  
+# 5) Probabilidades 20 años
+
+## Parámetros
+
+```{r}
+T <- 1:240 / 12 # En años
+dt <- T / (T * 252)
+t_list <- lapply(T, function(Ti) seq(0, Ti, length.out = round(Ti * 252) + 1))
+```
+
+## $ln(S_t)$
+
+```{r}
+sim <- 1000
+Pfinal <- matrix(0, nrow = sim, ncol = length(T))  
+colnames(Pfinal) <- paste0(T * 12, "Months")  # Etiquetas con meses
+
+for (i in 1:sim) {
+  for (j in 1:length(T)) {
+    W <- c(0, cumsum(sqrt(dt[j]) * rnorm(round(T[j] * 252))))
+    St1 <- S0 * exp((mu - 0.5 * sigma^2) * t_list[[j]] + sigma * W)
+    Pfinal[i, j] <- St1[length(St1)]
+  }
+}
+
+probs <- colMeans(Pfinal > 18)
+
+data_plot_St <- data.frame(
+  Meses = T * 12,
+  Probabilidad = probs
+)
+
+plot(data_plot_St, type="l", col=colors[1], 
+     main=expression("Probabilidad de precio mayor a 18 por mes"))
+grid()
+```
+
+## $ds$
+
+```{r}
+sim <- 1000
+Pfinal <- matrix(0, nrow = sim, ncol = length(T))  
+colnames(Pfinal) <- paste0(T * 12, "Months")  # Etiquetas con meses
+
+for (i in 1:sim) {
+  for (j in 1:length(T)) {
+    W <- c(0, cumsum(sqrt(dt[j]) * rnorm(round(T[j] * 252))))
+    ds <- S0 * mu * t_list[[j]] + S0 * sigma * W
+    Pfinal[i, j] <- ds[length(ds)]
+  }
+}
+
+probs <- colMeans(Pfinal > 3)
+
+data_plot_ds <- data.frame(
+  Meses = T * 12,
+  Probabilidad = probs
+)
+
+plot(data_plot_ds, type="l", col=colors[1], 
+     main=expression("Probabilidad de cambio en el precio mayor a 3 por mes"))
+grid()
+```
+
+## Comparación
+
+```{r}
+data_plot_merged <- merge(data_plot_St, data_plot_ds, by = "Meses", all = TRUE)
+
+colnames(data_plot_merged)[colnames(data_plot_merged) == "Probabilidad.x"] <- "ln_St"
+colnames(data_plot_merged)[colnames(data_plot_merged) == "Probabilidad.y"] <- "ds"
+
+plot(data_plot_merged$Meses, data_plot_merged$ds, type="l", col=colors[1], 
+     main="Comparación ecuaciones ds y ln(St)", xlab="Meses", ylab="Probabilidad")
+lines(data_plot_merged$Meses, data_plot_merged$ln_St, col=colors[2])
+
+legend("right", legend = c("ds", "ln(St)"), col = c(colors[1], colors[2]), lty = 1)
+grid()
+```
+
+## Análisis
+
+En la última gráfica se muestra la comparación de las probabilidades simuladas a 20 años de las ecuaciones $ds$ y $ln(S_t)$. La ecuación $ds$ se puede ver que siempre tiene un incremento. Es decir, mientras más aumenta el horizonte, mayor es la probabilidad. Al final de los 20 años la probabilidad se ubica por encima de 0.8. Por otro lado, con la ecuación de $ln(S_t)$ la probabilidad aumenta los primeros meses, llegando a un máximo en un intervalo de alrededor de los meses 30 a 60. A partir de ese momento la probabilidad comienza a dismiunir, hasta llegar a una probabilidad final de alrededor de 0.3.
+
+La diferencia de las probabilidades finales entre las dos ecuaciones se debe a la naturaleza de las mismas. $ds$ modela el cambio en el precio, por lo que se recomineda que el horizonte máximo de su uso sea únicamente 1 mes. Por otro lado, $ln(S_t)$, modela el cambio en el precio, lo que da ajustes más precisos en un horizonte más largo. Con base en eso sería adecuado decir que la representación más precisa de la probabilidad a lo largo del tiempo es la línea representada por $ln(S_t)$.
