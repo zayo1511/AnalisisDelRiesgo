@@ -174,5 +174,7 @@ tabla <- tibble(
   "Riesgo Sistemático"=(resultados$sigma^2) / (1-resultados$r.squared) * 100 * resultados$r.squared,
   "Riesgo no Sistemático"=(resultados$sigma^2) / (1-resultados$r.squared) * 100 * (1-resultados$r.squared)
 )
+
+tabla
 ```
 

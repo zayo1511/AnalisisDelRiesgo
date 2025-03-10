@@ -17,6 +17,7 @@ suppressPackageStartupMessages(library(quantmod))
 suppressPackageStartupMessages(library(lubridate))
 suppressPackageStartupMessages(library(readxl))
 suppressPackageStartupMessages(library(dplyr))
+suppressPackageStartupMessages(library(zoo))
 ```
 
 # Datos
@@ -33,25 +34,29 @@ PIB$PorcentualAnnuealGrowthRate <- PIB$PorcentualAnnuealGrowthRate/100
 PIB <- xts(PIB$PorcentualAnnuealGrowthRate, order.by = PIB$Year)
 ```
 
-# Gráficas
+# **Gráfica del Precio y Rentabilidad de GCC**
 
 ## Precio
 
 ```{r}
+titulo <- "Precio histórico de GCC desde su salida a bolsa hasta 2024"
 precio <- datos[[clave]][,6]
-plot(precio, type="l", ylab="Precio", col="cornflowerblue", main=clave)
+plot(precio, type="l", ylab="Precio", col="cornflowerblue", main=titulo)
 ```
 
 ## Rendimiento
 
 ```{r}
+titulo_rt <- "Rendimientos logarítmicos Diarios de GCC"
 rt <- na.omit(diff(log(precio)))
-plot(rt, col="cornflowerblue")
+plot(rt, col="cornflowerblue", main=titulo_rt)
 ```
 
-# Comparación rendimiento GCC compuesto y tasa de crecimiento del PIB en México compuesto
+# **Comparación rendimiento GCC compuesto y tasa de crecimiento del PIB en México compuesto**
 
 ## Rendimiento GCC
+
+En primer lugar se necesita calcular el rendimiento anual de la acción de GCC. Anteriormente se calculo el rendimiento diario, para este ejercicio se utiliza la función "yearlyReturn" para obtener un único dato sobre el rendimiento por año. El gráfico sobre el rendimiento anual de GCC se muestra de la siguiente manera:
 
 ```{r}
 rt_anual <- yearlyReturn(precio)
@@ -60,6 +65,12 @@ plot(rt_anual, type="l", ylab="Rendimiento", col="cornflowerblue", main="Rendimi
 ```
 
 ## Tasa de crecimiento del PIB en México
+
+Después, para su comparación se buscan los datos sobre el PIB de México. Se utiliza esta métrica de comparación, para poder constrastar el desempeño anual que tuvo la empresa contra el país en el que se desempeña (México).
+
+En la página de internet del *Banco Mundial*, se encuentra la tasa de crecimiento del PIB de México de manra anual. Los datos fueron descargados y trabajados directamenbte en el archivo de excel, de modo que se eliminaron a todos los países excepto México y se borraron las fechas que no corresponden a este análisis. Ya que el Banco Mundial cuenta con datos hasta 2023, se buscó el dato sobre el crecimiento del PIB en 2024, el cual fue encontrado en una noticia publicada por *El País*. Este dato se agrga manualmente al dataset sobre el PIB.
+
+El comportamiento sobre el crecimiento del PIB en México se representa gráficamente de la siguiente manera:
 
 ```{r}
 PIB2024 <- xts(
@@ -75,17 +86,64 @@ plot(PIB, type="l", ylab="Crecimiento", col="cornflowerblue", main="Tasa de crec
 ## Comparacion
 
 ```{r}
-PIB_compusto <- cumprod(1+PIB)
-rt_compusto <- cumprod(1+rt_anual)
+index(rt_anual) <- as.Date(paste0(year(index(rt_anual)), "-12-31"))
 
-names(PIB_compusto) <- "PIB"
-names(rt_compusto) <- "GCC"
+merged_data <- merge(rt_anual, PIB, join="outer")
 
-plot(merge.xts(PIB_compusto, rt_compusto), type="l", main="Comparación rendimiento GCC y tasa de crecimiento del PIB en México compuestos", 
-     col=c("cornflowerblue", "indianred"), legend.loc = "bottom")
+colnames(merged_data) <- c("Rendimiento_GCC", "Crecimiento_PIB")
+
+merged_data <- na.approx(merged_data)  # Solo si hay valores faltantes
+
+par(oma=c(1,1,4,1)) 
+
+plot(merged_data, multi.panel=TRUE, col=c("cornflowerblue", "indianred"), main="")
+
+mtext("Comparación entre el Rendimiento de GCC \ny el Crecimiento del PIB en México", 
+      side=3, line=5, cex=1.2, font=2) 
 ```
 
-# Referencias
+Se grafican ambas trayectorias por separado, ya que la variablididad entre ambas métricas es muy distinta es poco interpretable en una misma gráfica. Claramente se puede ver que CGG tiene mucha más variablididad, tanto positiva como negativa. Por el otro lado el crecimeinto del PIB se mantiene bastante más constante.
+
+## Crecimiento Compuesto
+
+```{r}
+colnames(merged_data) <- c("Crecimiento_PIB", "Rendimiento_GCC")
+
+PIB_compuesto <- cumprod(1 + merged_data$Crecimiento_PIB)
+rt_compuesto <- cumprod(1 + merged_data$Rendimiento_GCC)
+
+plot_data <- merge.xts(PIB_compuesto, rt_compuesto)
+colnames(plot_data) <- c("GCC", "PIB")
+
+plot(plot_data, type="l", main="Comparación del Crecimiento Compuesto de GCC \ny del PIB en México", 
+     col=c("cornflowerblue", "indianred"), legend.loc="left")
+```
+
+Para tratar de comparar ambos rendimientos, se utiliza el acumulado de las series. Con esto podemos interpretar de manera más sencilla los cambios positivos y negativos por métrica. Sin embargo, esto no es del todo comparable, ya que no comienzan donde mismo.
+
+## Crecimiento Compuesto normalizado
+
+```{r}
+colnames(merged_data) <- c("Crecimiento_PIB", "Rendimiento_GCC")
+
+PIB_compuesto <- cumprod(1 + merged_data$Crecimiento_PIB)
+rt_compuesto <- cumprod(1 + merged_data$Rendimiento_GCC)
+
+PIB_compuesto <- PIB_compuesto / as.numeric(first(PIB_compuesto))
+rt_compuesto <- rt_compuesto / as.numeric(first(rt_compuesto))
+
+plot_data <- merge.xts(PIB_compuesto, rt_compuesto)
+colnames(plot_data) <- c("GCC", "PIB")
+
+plot(plot_data, type="l", main="Comparación del Crecimiento Compuesto Normalizado \nde GCC y del PIB en México", 
+     col=c("cornflowerblue", "indianred"), legend.loc="left")
+```
+
+Las series se "normalizan", es decir se dividen entre el primer dato, de modo que ambas comienzen en 1. Esta gráfica finalmente si es comparable. 
+
+Ya que ambos comienzan en 1, se puede interpretar que, acumuladamente, desde diciembre de 2007 hasta diciembre de 2024, GCC tuvo un crecimiento de casi el 200%, mientras que el PIB creció aproximadamente un 30%. Aunque, finalmente GCC tuvo un crecimiento mucho mayor que el PIB, es interesante notar que durante los primeros 9 años (2007-2016) el PIB tuvo un crecimiento acumulado mayor que GCC. De hecho el PIB tuvo un crecimiento, mientras que GCC presentó un decrecimiento. A partir de comienzos del 2016 el precio en la acción de GCC creció considerablemente. logrando un crecimiento de mayor al 100% en 2 años (2016-2017).
+
+# **Referencias**
 
 - El País. (2025, 21 de febrero). La economía de México creció 1.2% en 2024, su peor desempeño desde 2020. El País. Recuperado de https://elpais.com/mexico/2025-02-21/la-economia-de-mexico-crecio-12-en-2024-su-peor-desempeno-desde-2020.html#:~:text=PIB:%20La%20econom%C3%ADa%20de%20M%C3%A9xico,EL%20PA%C3%8DS%20M%C3%A9xico
 - Banco Mundial. (s.f.). Crecimiento del PIB (anual) (%). Recuperado de https://datos.bancomundial.org/indicador/NY.GDP.MKTP.KD.ZG?locations=MX
