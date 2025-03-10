@@ -1,0 +1,203 @@
+---
+title: "Tarea 07: CAPM"
+author: "Rolando Fortanell Canedo
+         Luis Eduardo Jiménez del Muro
+         Diego Lozoya Morales
+         Lenin Adair Quezada Gómez"
+date: "2025-03-09"
+output: 
+  html_document:
+    theme: darkly
+    toc: true
+    toc_float: true
+---
+
+```{r}
+suppressPackageStartupMessages(library(quantmod))
+suppressPackageStartupMessages(library(lubridate))
+suppressPackageStartupMessages(library(readxl))
+suppressPackageStartupMessages(library(dplyr))
+suppressPackageStartupMessages(library(zoo))
+suppressPackageStartupMessages(library(xts))
+suppressPackageStartupMessages(library(tibble))
+```
+
+# Elección de activos:
+
+- CEMEXCPO.MX
+- AMXB.MX
+- WALMEX.MX
+
+# Descarga de datos
+
+```{r}
+datos <- new.env()
+
+activos <- c("CEMEXCPO.MX", "AMXB.MX", "WALMEX.MX")
+
+getSymbols(activos, from = "2020-01-01", to = "2025-01-01", env = datos)
+
+# Descargar el IPC como referencia del mercado
+getSymbols("^MXX", from="2020-01-01", to="2025-01-01", env=datos)
+```
+
+# Precios
+
+```{r}
+precio_cemex <- to.monthly(datos[["CEMEXCPO.MX"]][,6])[,4]
+precio_amxb <- to.monthly(datos[["AMXB.MX"]][,6])[,4]
+precio_walmex <- to.monthly(datos[["WALMEX.MX"]][,6])[,4]
+
+# IPC
+precio_m <- to.monthly(datos[["MXX"]][,6])[,4]
+```
+
+# Rendiminetos mensuales
+
+```{r}
+r_cemex <- monthlyReturn(precio_cemex)
+r_amxb <- monthlyReturn(precio_amxb)
+r_walmex <- monthlyReturn(precio_walmex)
+
+r_m <- monthlyReturn(precio_m)
+```
+
+# Comparación gráfica
+
+```{r}
+names(r_cemex) <- "CEMEX"
+names(r_amxb) <- "AMXB"
+names(r_walmex) <- "WALMEX"
+names(r_m) <- "IPC"
+```
+
+```{r}
+merged_data <- merge(r_cemex, r_amxb, r_walmex, r_m)
+
+merged_data <- na.approx(merged_data)  # Solo si hay valores faltantes
+
+par(oma=c(1,1,4,1))
+
+plot(merged_data, multi.panel=TRUE, col=c("cornflowerblue", "indianred", "darkseagreen", "dimgray"), main="")
+
+mtext("Comparación entre el Rendimiento de los activos del portafolio y el IPC", 
+      side=3, line=5, cex=1.2, font=2) 
+```
+
+```{r}
+# Grafica de la evolución de los rendimientos
+plot(merge.xts(r_cemex, r_amxb, r_walmex, r_m), col=c("cornflowerblue", "indianred", "darkseagreen", "dimgray"),
+     main="Comportamiento del Mercado y Activos del Portafolio", 
+     legend.loc="topright")
+```
+
+# Tasa Libre de Riesgo
+
+```{r}
+r_f <- read_xlsx("TasaCetes.xlsx")
+
+r_f$SF43936 <- (r_f$SF43936 / 100 / 12)
+r_f <- as.xts(r_f$SF43936, order.by = r_f$Fecha)
+r_f <- to.monthly(r_f)[,4]
+```
+
+# Regresiones individuales
+
+```{r}
+E_cemex <- r_cemex - r_f
+E_amxb <- r_amxb - r_f
+E_walmex <- r_walmex - r_f
+
+# Excedente de rendimiento del mercado
+E_mf <- r_m - r_f
+```
+
+```{r}
+# Regresión para CEMEX
+CAPM_cemex <- lm(E_cemex ~ E_mf)
+summary(CAPM_cemex)
+
+# Regresión para AMXL
+CAPM_amxb <- lm(E_amxb ~ E_mf)
+summary(CAPM_amxb)
+
+# Regresión para WALMEX
+CAPM_walmex <- lm(E_walmex ~ E_mf)
+summary(CAPM_walmex)
+```
+
+# Tabla de resultados individuales
+
+```{r}
+# Función para calcular métricas de riesgo y alfa-beta
+calcular_metricas <- function(modelo) {
+  resultados <- summary(modelo)
+  
+  R_cuadrado <- resultados$r.squared
+  Riesgo_total <- ((resultados$sigma^2) / (1 - resultados$r.squared)) * 100
+  Riesgo_sist <- Riesgo_total * R_cuadrado
+  Riesgo_no_sist <- Riesgo_total * (1 - R_cuadrado)
+  
+  alpha <- resultados$coefficients[1]
+  beta <- resultados$coefficients[2]
+  
+  return(c(Alpha = alpha, Beta = beta, 
+           Riesgo_Sist = Riesgo_sist, Riesgo_No_Sist = Riesgo_no_sist,
+           Porc_Riesgo_Sist = R_cuadrado * 100, Porc_Riesgo_No_Sist = (1 - R_cuadrado) * 100))
+}
+```
+
+```{r}
+# Calcular métricas para cada activo
+metricas_cemex <- calcular_metricas(CAPM_cemex)
+metricas_amxb <- calcular_metricas(CAPM_amxb)
+metricas_walmex <- calcular_metricas(CAPM_walmex)
+
+# Crear tabla con el resumen
+tabla_resultados_individuales <- tibble(
+  Activo = c("CEMEX", "AMXL", "WALMEX"),
+  Alpha = c(metricas_cemex["Alpha"], metricas_amxb["Alpha"], metricas_walmex["Alpha"]),
+  Beta = c(metricas_cemex["Beta"], metricas_amxb["Beta"], metricas_walmex["Beta"]),
+  `% Riesgo Sist` = c(metricas_cemex["Porc_Riesgo_Sist"], metricas_amxb["Porc_Riesgo_Sist"], metricas_walmex["Porc_Riesgo_Sist"]),
+  `% Riesgo No Sist` = c(metricas_cemex["Porc_Riesgo_No_Sist"], metricas_amxb["Porc_Riesgo_No_Sist"], metricas_walmex["Porc_Riesgo_No_Sist"]),
+  `Riesgo Sist` = c(metricas_cemex["Riesgo_Sist"], metricas_amxb["Riesgo_Sist"], metricas_walmex["Riesgo_Sist"]),
+  `Riesgo No Sist` = c(metricas_cemex["Riesgo_No_Sist"], metricas_amxb["Riesgo_No_Sist"], metricas_walmex["Riesgo_No_Sist"])
+)
+
+print(tabla_resultados_individuales)
+
+```
+
+# Regrasión portafolio
+
+```{r}
+r_port <- rowMeans(merge(r_cemex, r_amxb, r_walmex), na.rm=TRUE)
+
+E_port <- r_port - r_f
+
+CAPM_port <- lm(head(E_port, -1) ~ E_mf)
+summary(CAPM_port)
+```
+
+# Tabla de reultados portafolio
+
+```{r}
+# Calcular métricas para el portafolio
+metricas_port <- calcular_metricas(CAPM_port)
+
+# Crear tabla con el resumen
+tabla_resultados_port <- tibble(
+  Activo = "Portafolio",
+  Alpha = metricas_port["Alpha"],
+  Beta = metricas_port["Beta"],
+  `% Riesgo Sist` = metricas_port["Porc_Riesgo_Sist"],
+  `% Riesgo No Sist` = metricas_port["Porc_Riesgo_No_Sist"],
+  `Riesgo Sist` = metricas_port["Riesgo_Sist"],
+  `Riesgo No Sist` = metricas_port["Riesgo_No_Sist"]
+)
+
+print(tabla_resultados_port)
+
+```
+
+
