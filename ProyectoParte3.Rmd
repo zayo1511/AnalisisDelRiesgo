@@ -1,0 +1,259 @@
+---
+title: "Proyecto Final: Parte 3"
+author: "Rolando Fortanell Canedo
+         Luis Eduardo Jiménez del Muro
+         Diego Lozoya Morales
+         Lenin Adair Quezada Gómez"
+date: "2025-03-21"
+output: 
+  html_document:
+    theme: darkly
+    toc: true
+    toc_float: true
+---
+
+# Librerías
+
+```{r}
+suppressPackageStartupMessages(library(quantmod))
+suppressPackageStartupMessages(library(lubridate))
+suppressPackageStartupMessages(library(dplyr))
+suppressPackageStartupMessages(library(zoo))
+suppressPackageStartupMessages(library(moments))
+```
+
+# Datos
+
+```{r}
+clave <- "GCC.MX"
+datos <- new.env()
+
+getSymbols(clave, to="2024-12-31", env=datos)
+
+precio <- datos[[clave]][,6]
+rt <- na.omit(diff(log(precio)))
+```
+
+# Rendimiento y volatilidad por año
+
+```{r}
+names(rt) <- "rend"
+tabla <- rt %>% 
+  as_tibble() %>% 
+  mutate(year=year(rt)) %>% 
+  group_by(year) %>% 
+  summarise("Rend_diario"=mean(rend)*100,
+            "Vol_diaria"=sd(rend)*100,
+            "Rend_anual"=mean(rend)*252*100,
+            "Vol_anual"=sd(rend)*sqrt(252)*100)
+tabla
+```
+
+
+# Pruebas Estadísticas
+
+## Normalidad
+
+### Rendimiento
+
+```{r}
+jarque.test(as.numeric(rt))
+```
+
+### Precio
+
+```{r}
+jarque.test(as.numeric(precio))
+```
+
+### ln(Precio)
+
+```{r}
+jarque.test(as.numeric(log(precio)))
+```
+
+## Igualdad a 0
+
+```{r}
+t.test(as.numeric(rt), mu=0, alternative = "two.sided")
+```
+
+# Estimación de precios a corto plazo
+
+$$ds=s\mu dt + s\sigma dW$$
+```{r}
+mu <-  mean(rt)
+sigma <-  sd(rt)
+S0 <- as.numeric(tail(precio, 1))
+
+sim <- 100000
+```
+
+## 10 días
+
+```{r}
+T <- 10 #En días
+dt <- 1/252
+t <- seq(0, T, length.out=(T+1))
+
+Pfinal <- numeric(sim)
+
+for (i in 1:sim) {
+  W <- c(0, cumsum(sqrt(dt)*rnorm(T)))
+  ds <- S0*mu*t+S0*sigma*W
+  Pfinal[i] <- ds[(T+1)]
+}
+
+intervalo1 <- S0+quantile(Pfinal, 0.025)
+intervalo2 <- S0+quantile(Pfinal, 0.975)
+
+print(sprintf("El precio esperado es: %.2f", S0+mean(Pfinal)))
+sprintf("El intervalo de confianza del 95%% para el precio es: [%.2f, %.2f]", intervalo1, intervalo2)
+```
+
+## 20 días
+
+```{r}
+T <- 20 #En días
+dt <- 1/252
+t <- seq(0, T, length.out=(T+1))
+
+Pfinal <- numeric(sim)
+
+for (i in 1:sim) {
+  W <- c(0, cumsum(sqrt(dt)*rnorm(T)))
+  ds <- S0*mu*t+S0*sigma*W
+  Pfinal[i] <- ds[(T+1)]
+}
+
+intervalo1 <- S0+quantile(Pfinal, 0.025)
+intervalo2 <- S0+quantile(Pfinal, 0.975)
+
+print(sprintf("El precio esperado es: %.2f", S0+mean(Pfinal)))
+sprintf("El intervalo de confianza del 95%% para el precio es: [%.2f, %.2f]", intervalo1, intervalo2)
+```
+
+## 40 días
+
+```{r}
+T <- 40 #En días
+dt <- 1/252
+t <- seq(0, T, length.out=(T+1))
+
+Pfinal <- numeric(sim)
+
+for (i in 1:sim) {
+  W <- c(0, cumsum(sqrt(dt)*rnorm(T)))
+  ds <- S0*mu*t+S0*sigma*W
+  Pfinal[i] <- ds[(T+1)]
+}
+
+intervalo1 <- S0+quantile(Pfinal, 0.025)
+intervalo2 <- S0+quantile(Pfinal, 0.975)
+
+print(sprintf("El precio esperado es: %.2f", S0+mean(Pfinal)))
+sprintf("El intervalo de confianza del 95%% para el precio es: [%.2f, %.2f]", intervalo1, intervalo2)
+```
+
+# Estimación de precios a largo plazo
+
+$$S_t=S_0+e^{(\mu-\frac{1}{2}\sigma^2)dt+\sigma dW}$$
+
+```{r}
+mu <-  mean(rt)*252
+sigma <-  sd(rt)*sqrt(252)
+```
+
+## 3 meses
+
+```{r}
+T <- (252/4)/252 #En años
+dt <- T/(T*252)
+t <- seq(0, T, length.out=(T*252+1))
+
+Pfinal <- numeric(sim)
+
+for (i in 1:sim) {
+  W <- c(0, cumsum(sqrt(dt)*rnorm(T*252)))
+  St1 <- S0*exp((mu-0.5*sigma^2)*t+sigma*W)
+  Pfinal[i] <- St1[(T*252+1)]
+}
+
+intervalo1 <- quantile(Pfinal, 0.025)
+intervalo2 <- quantile(Pfinal, 0.975)
+
+print(sprintf("El precio esperado es: %.2f", mean(Pfinal)))
+sprintf("El intervalo de confianza del 95%% para el precio es: [%.2f, %.2f]", intervalo1, intervalo2)
+```
+
+## 6 meses
+
+```{r}
+T <- (252/2)/252 #En años
+dt <- T/(T*252)
+t <- seq(0, T, length.out=(T*252+1))
+
+Pfinal <- numeric(sim)
+
+for (i in 1:sim) {
+  W <- c(0, cumsum(sqrt(dt)*rnorm(T*252)))
+  St1 <- S0*exp((mu-0.5*sigma^2)*t+sigma*W)
+  Pfinal[i] <- St1[(T*252+1)]
+}
+
+intervalo1 <- quantile(Pfinal, 0.025)
+intervalo2 <- quantile(Pfinal, 0.975)
+
+print(sprintf("El precio esperado es: %.2f", mean(Pfinal)))
+sprintf("El intervalo de confianza del 95%% para el precio es: [%.2f, %.2f]", intervalo1, intervalo2)
+```
+
+## 9 meses
+
+```{r}
+T <- ((3*252)/4)/252 #En años
+dt <- T/(T*252)
+t <- seq(0, T, length.out=(T*252+1))
+
+Pfinal <- numeric(sim)
+
+for (i in 1:sim) {
+  W <- c(0, cumsum(sqrt(dt)*rnorm(T*252)))
+  St1 <- S0*exp((mu-0.5*sigma^2)*t+sigma*W)
+  Pfinal[i] <- St1[(T*252+1)]
+}
+
+intervalo1 <- quantile(Pfinal, 0.025)
+intervalo2 <- quantile(Pfinal, 0.975)
+
+print(sprintf("El precio esperado es: %.2f", mean(Pfinal)))
+sprintf("El intervalo de confianza del 95%% para el precio es: [%.2f, %.2f]", intervalo1, intervalo2)
+```
+
+## 12 meses
+
+```{r}
+T <- 252/252 #En años
+dt <- T/(T*252)
+t <- seq(0, T, length.out=(T*252+1))
+
+Pfinal <- numeric(sim)
+
+for (i in 1:sim) {
+  W <- c(0, cumsum(sqrt(dt)*rnorm(T*252)))
+  St1 <- S0*exp((mu-0.5*sigma^2)*t+sigma*W)
+  Pfinal[i] <- St1[(T*252+1)]
+}
+
+intervalo1 <- quantile(Pfinal, 0.025)
+intervalo2 <- quantile(Pfinal, 0.975)
+
+print(sprintf("El precio esperado es: %.2f", mean(Pfinal)))
+sprintf("El intervalo de confianza del 95%% para el precio es: [%.2f, %.2f]", intervalo1, intervalo2)
+```
+
+
+
+
+
+

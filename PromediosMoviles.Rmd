@@ -2,7 +2,11 @@
 title: "PromedioMovil"
 author: "Diego Lozoya"
 date: "2025-03-04"
-output: html_document
+output: 
+  html_document:
+    theme: darkly
+    toc: true
+    toc_float: true
 ---
 
 Estimación de un modelo de promedio movil para estimar la varianza
@@ -124,7 +128,65 @@ Con base en el EAMP el mejor modelo es con $m=5$.
 
 ### ECPP
 
+$$\sqrt{\frac{1}{H}\sum_{i=1}^n (\frac{R_i^2-\sigma_i^2}{R_i^2})^2}$$
 
+Nota: como el indicador dice que es necesario dividir entre el rendimiento al cuadrado, vamos a calcular el valor del indicador y eliminar los valores que resulten infinitos ocasionados por el rendimiento cero.
+
+```{r}
+w <- merge.xts(((na.omit(rt_C-Var_5))/na.omit(rt_C))^2,
+               ((na.omit(rt_C-Var_10))/na.omit(rt_C))^2,
+               ((na.omit(rt_C-Var_20))/na.omit(rt_C))^2,
+               ((na.omit(rt_C-Var_40))/na.omit(rt_C))^2
+)
+
+w <- subset(w, w$GFNORTEO.MX.Adjusted!="Inf")
+```
+
+```{r}
+ECPP <- sqrt(colMeans(na.omit(w)))
+
+ECPP
+```
+
+Este indicador refuerza el resultado que dice que el mejor valor para la estimación es m=5
+
+### Criterio de decisión
+
+- Si los 3 coinciden se utiliza esa m
+- Si los 3 difieren se utiliza lo que diga el RMSE
+- Todos los demás casos 2 vs 1
+
+## Estimación
+
+Con esta primera conclusión del valor de m, vamos a construir una estimación futura para la varianza en un día despues del último día de información disponible.
+
+```{r}
+m_opt <- 5
+```
+
+```{r}
+#fecha_est <- date(last(precio))
+fecha_est <- tail(index(precio), 1)+1
+fecha_est
+```
+
+Y mi estimación es para hoy
+
+usando los últimos 5 días, la estimación de varianza es:
+
+```{r}
+#mean(last(rt_C, m_opt))
+mean(tail(rt_C, m_opt))
+```
+
+Por lo tanto la estimación de volatilidad es:
+
+```{r}
+v_est <- sqrt(mean(tail(rt_C, m_opt)))
+v_est
+```
+
+Por lo tanto, el valor optimo de m es `r m_opt`, la estimación de volatilidad usando este valor es de `r v_est*100`% y es para el día `rfecha_est`
 
 
 
