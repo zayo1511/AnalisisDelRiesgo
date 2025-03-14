@@ -1,0 +1,78 @@
+---
+title: "EWMA"
+author: "Rose R"
+date: "2025-03-13"
+output: html_document
+---
+
+Estimación del Modelo EWMA
+
+Cuando estimamos este modelo, el objetivo es determinar el valor de lambda
+
+
+$$\sigma_t^2=(1-\lambda)R^2_{t-1}+\lambda \sigma^2_{t-1}$$
+
+
+Sabemos que para encontrar lambda usamos una maximización de maxima verosimilitud, a través de la optimizaci+on de la función
+
+
+$$\max{\sum_{i=1}^n}[-\ln\sigma_i^2-(\frac{R_i}{\sigma_i})^2]$$
+
+
+```{r}
+library(quantmod)
+library(lubridate)
+datos <- new.env()
+clave <- "GFNORTEO.MX"
+getSymbols(clave, from="2000-01-01", env=datos)
+precio <- datos[[clave]][,6]
+rendimiento <- na.omit(diff(log(precio)))
+rend_c <- rendimiento^2
+```
+
+```{r}
+L <- 0.7
+var_est <- matrix(0, nrow=nrow(rend_c), ncol=1)
+var_est[1,1] <- rend_c[1,1]
+
+for (i in 2:nrow(rend_c)) {
+  var_est[i, 1] <- (1-L)*rend_c[i-1, 1]+L*var_est[i-1, 1]
+}
+
+Fun_Ver <- sum(-log(var_est)-rend_c/var_est)
+Fun_Ver
+```
+
+Se calcula la funacionde vorismilitud dado un valor arbitrario de $\lambda$. Ya que se busca el óptimo se crea un for anidado donde se prueban los diferentes valores de lambda.
+
+```{r}
+l <- seq(0.01, 0.99, by=0.01)
+Fun_Ver <- matrix(0, nrow=nrow(rend_c), ncol=1)
+Res <- matrix(0, nrow=length(l), ncol=2)
+j <- 0
+for (L in l) {
+  for (i in 2:nrow(rend_c)) {
+  var_est[i, 1] <- (1-L)*rend_c[i-1, 1]+L*var_est[i-1, 1]
+  Fun_Ver[i, 1] <- (-log(var_est[i, 1])-rend_c[i, 1]/var_est[i, 1])
+  }
+  j <- j+1
+  Res[j,1] <- L
+  Res[j,2] <- sum(Fun_Ver)
+}
+```
+
+Vamos a seleccionar el valor de lambda óptimo
+
+```{r}
+colnames(Res) <- c("Lambda", "FnVer")
+L_opt <- Res[order(Res[,"FnVer"], decreasing = TRUE)][1]
+L_opt
+```
+
+Vamos a efectuar una estimacion futura para la varianza del modelo usando el valor optimo
+
+```{r}
+library(fTrading)
+
+```
+
