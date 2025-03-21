@@ -1,0 +1,192 @@
+---
+title: "Arch-Garch"
+author: "Diego Lozoya"
+date: "2025-03-21"
+output: html_document
+---
+
+Estimación de un modelo ARCH-GARCH para el comportamiento del rendimiento de un activo.
+
+$$R_t=\mu+\nu_t$$ 
+
+Donde $\mu$ puede ser constante o no constante. Si no es constante se transforma en $\mu_t$ indicando que tenemos una media para punto del tiempo.
+
+Para esta estimación efectuaremos diversos pasos.
+
+# Paso 0. Bajar los datos y sacar el rendimiento
+
+```{r}
+library(quantmod)
+library(lubridate)
+datos <- new.env()
+clave <- "GFNORTEO.MX"
+getSymbols(clave, from="2000-01-01", to="2025-03-20", env=datos)
+precio <- datos[[clave]][,6]
+rendimiento <- na.omit(diff(log(precio)))
+rend_c <- rendimiento^2
+```
+
+# Paso 1: Decidir si el modelo es adecuado
+
+Decidir si esta familia de modelos es adecuada para la serie de datos con las que estoy trabajando.Ya que esta familia de modelos suponen comportamientos de autocorrelación y autoregresivos.
+
+Para tomar esta decisión es necesario usar la prueba de hipótesis siguiente:
+
+$$Ho:\text{No hay efectos ARCH-GARCH}$$
+
+$$Ha:\text{Si hay efectos ARCH-GARCH}$$ 
+
+Esta prueba se efectua a través de la función siguiente:
+
+```{r}
+ArchTest <- function (x, lags=20, demean = FALSE) 
+{
+  # Capture name of x for documentation in the output  
+  xName <- deparse(substitute(x))
+  # 
+  x <- as.vector(x)
+  if(demean) x <- scale(x, center = TRUE, scale = FALSE)
+  #  
+  lags <- lags + 1
+  mat <- embed(x^2, lags)
+  arch.lm <- summary(lm(mat[, 1] ~ mat[, -1]))
+  STATISTIC <- arch.lm$r.squared * length(resid(arch.lm))
+  names(STATISTIC) <- "Chi-squared"
+  PARAMETER <- lags - 1
+  names(PARAMETER) <- "df"
+  PVAL <- 1 - pchisq(STATISTIC, df = PARAMETER)
+  METHOD <- "ARCH LM-test;  Null hypothesis:  no ARCH effects"
+  result <- list(statistic = STATISTIC, parameter = PARAMETER, 
+                 p.value = PVAL, method = METHOD, data.name =
+                   xName)
+  class(result) <- "htest"
+  return(result)
+}
+```
+
+Aplicar la prueba:
+
+```{r}
+ArchTest(rendimiento)
+```
+
+El resultado dice que, rechazo H0 y me quedo con la H1, lo quie significa que si hay efectos ARCH-GARCH.
+
+Una segunda opción es el análisis visual, en caso de que nos quede una duda razonable.
+
+```{r}
+plot(rend_c, col = "cornflowerblue")
+```
+
+Ya que hemos validado el uso de esta familia de modelos, vamos a proceder a la estimación.
+
+# Paso 2: Hacer la estimación
+
+## Consideraciones previas a la estimación
+
+Antes de pasar a la estimación conviene hacer algunas aclaraciones para decidir el valor óptimo de p y de q en el modelo.
+
+- Parsimonia: Es decir, sencillo, y que explique el comportamiento obseravado. Esto significa que en ocasiones tenemos un modelo muy complejo que no aporta nada a la estimación, por lo que se deben descartar. Para que un modelo sea parsimonioso debemos considerar que los parámetros de la estimación deben ser significativos.
+
+El modelo óptimo va a optimizar 3 diferentes cosas:
+
+1. Función de verosimilitud: preferimos modelos altos en verosimilitud, en comparación con modelos bajos en esto.
+
+2. El indicador AIC, nos reflejan una medida de la relación que hay entre el numero de parámetros del modelo y la verosimilitud.
+
+$$AIC=2k-2\ln(L)$$
+
+  Se prefieren valores pequeños de AIC
+  
+3. EL indicador BIC
+
+$$BIC = k\ln(N) - 2\ln(L)$$
+
+  donde N es el número de datos
+
+La estrategia de estimación es seleccionar varios modelos y seleccionar el mejor, considerando los 4 elementos descritos.
+
+## Estimación
+
+- ARCH(1)
+- ARCH(2)
+- GARCH(1,1)
+- GARCH(1,2)
+- GARCH(2,1)
+- GARCH(2,2)
+
+Como el modelo busca ajustar la varianza de todo aquello que no se explica por la media, lo primero que necesisitamos es el modelo de la media. Esto implica encontrar un modelo ARIMA o ARMA a la serie.
+
+```{r}
+library(forecast)
+ARIMA <- auto.arima(rendimiento)
+summary(ARIMA)
+```
+
+Como el modelo explica la varianza de todo aquello que la media no es capaz de capturar, necesito los residuos de la regresion anterior.
+
+```{r}
+residuos <- residuals(ARIMA)
+```
+
+Este objeto contiene todo aquello que la media (modelo ARIMA), no alcanza a explicar y mi objetivo es la varianza de esto. 
+
+ARCH
+
+$$\sigma_t^2=w+\alpha_1R_{t-1}^2$$
+
+```{r}
+library(fGarch)
+ARCH1 <- garchFit(formula=~garch(1,0), data=na.omit(residuos), cond.dist="norm", trace= FALSE)
+summary(ARCH1)
+```
+
+ARCH (2)
+
+$$\sigma_t^2=w+\alpha_1R_{t-1}^2+\alpha_2R_{t-1}^2$$
+
+```{r}
+ARCH2 <- garchFit(formula=~garch(2,0), data=na.omit(residuos), cond.dist="norm", trace= FALSE)
+summary(ARCH2)
+```
+
+GARCH (1,1)
+
+$$\sigma_t^2=w+\alpha_1R_{t-1}^2+\beta_1R_{t-1}^2$$
+
+```{r}
+GARCH11 <- garchFit(formula=~garch(1,1), data=na.omit(residuos), cond.dist="norm", trace= FALSE)
+summary(GARCH11)
+```
+
+GARCH (1,2)
+
+$$\sigma_t^2=w+\alpha_1R_{t-1}^2+\beta_1R_{t-1}^2+\beta_2R_{t-1}^2$$
+
+```{r}
+GARCH12 <- garchFit(formula=~garch(1,2), data=na.omit(residuos), cond.dist="norm", trace= FALSE)
+summary(GARCH12)
+```
+
+GARCH (2,1)
+
+$$\sigma_t^2=w+\alpha_1R_{t-1}^2+\alpha_2R_{t-1}^2+\beta_1R_{t-1}^2$$
+
+```{r}
+GARCH21 <- garchFit(formula=~garch(2,1), data=na.omit(residuos), cond.dist="norm", trace= FALSE)
+summary(GARCH21)
+```
+
+GARCH (2,2)
+
+$$\sigma_t^2=w+\alpha_1R_{t-1}^2+\alpha_2R_{t-1}^2+\beta_1R_{t-1}^2+\beta_2R_{t-1}^2$$
+
+```{r}
+GARCH22 <- garchFit(formula=~garch(2,2), data=na.omit(residuos), cond.dist="norm", trace= FALSE)
+summary(GARCH22)
+```
+
+Del análisis de los indicadores, la parsimonia y la verosimilitud, podemos decir que el modelo GARCH (1,1) es el mejor para esta serie de información.
+
+
+
