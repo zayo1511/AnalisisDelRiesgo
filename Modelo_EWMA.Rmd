@@ -1,6 +1,6 @@
 ---
 title: "EWMA"
-author: "Rose R"
+author: "Diego Lozoya"
 date: "2025-03-13"
 output: html_document
 ---
@@ -8,7 +8,6 @@ output: html_document
 Estimación del Modelo EWMA
 
 Cuando estimamos este modelo, el objetivo es determinar el valor de lambda
-
 
 $$\sigma_t^2=(1-\lambda)R^2_{t-1}+\lambda \sigma^2_{t-1}$$
 
@@ -23,8 +22,8 @@ $$\max{\sum_{i=1}^n}[-\ln\sigma_i^2-(\frac{R_i}{\sigma_i})^2]$$
 library(quantmod)
 library(lubridate)
 datos <- new.env()
-clave <- "GFNORTEO.MX"
-getSymbols(clave, from="2000-01-01", env=datos)
+clave <- "GCC.MX"
+getSymbols(clave, env=datos)
 precio <- datos[[clave]][,6]
 rendimiento <- na.omit(diff(log(precio)))
 rend_c <- rendimiento^2
@@ -43,7 +42,7 @@ Fun_Ver <- sum(-log(var_est)-rend_c/var_est)
 Fun_Ver
 ```
 
-Se calcula la funacionde vorismilitud dado un valor arbitrario de $\lambda$. Ya que se busca el óptimo se crea un for anidado donde se prueban los diferentes valores de lambda.
+Se calcula la funacionde verosimilitud dado un valor arbitrario de $\lambda$. Ya que se busca el óptimo se crea un for anidado donde se prueban los diferentes valores de lambda.
 
 ```{r}
 l <- seq(0.01, 0.99, by=0.01)
@@ -73,6 +72,11 @@ Vamos a efectuar una estimacion futura para la varianza del modelo usando el val
 
 ```{r}
 library(fTrading)
+Var_Est_opt <- xts(emaTA(rend_c, L_opt), order.by = date(rend_c))
+```
 
+```{r}
+Vol_Futura <- sqrt((1-L_opt)*as.numeric(last(rend_c))+L_opt*as.numeric(last(Var_Est_opt)))
+Vol_Futura
 ```
 
