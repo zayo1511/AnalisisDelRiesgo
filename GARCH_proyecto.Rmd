@@ -1,0 +1,104 @@
+---
+title: "GARCH_proyecto"
+author: "Diego Lozoya"
+date: "2025-03-25"
+output: html_document
+---
+
+# Datos
+
+```{r}
+library(quantmod)
+library(lubridate)
+datos <- new.env()
+clave <- "GCC.MX"
+getSymbols(clave, env=datos)
+precio <- datos[[clave]][,6]
+rendimiento <- na.omit(diff(log(precio)))
+rend_c <- rendimiento^2
+```
+
+# ARIMA
+
+```{r}
+library(forecast)
+ARIMA <- auto.arima(rendimiento)
+summary(ARIMA)
+```
+
+```{r}
+residuos <- residuals(ARIMA)
+```
+
+# GARCH
+
+```{r}
+GARCH11 <- garchFit(formula=~garch(1,1), data=na.omit(residuos), cond.dist="norm", trace= FALSE)
+summary(GARCH11)
+```
+
+```{r}
+GARCH12 <- garchFit(formula=~garch(1,2), data=na.omit(residuos), cond.dist="norm", trace= FALSE)
+summary(GARCH12)
+```
+
+```{r}
+GARCH21 <- garchFit(formula=~garch(2,1), data=na.omit(residuos), cond.dist="norm", trace= FALSE)
+summary(GARCH21)
+```
+
+```{r}
+GARCH22 <- garchFit(formula=~garch(2,2), data=na.omit(residuos), cond.dist="norm", trace= FALSE)
+summary(GARCH22)
+```
+
+# Media constante
+
+```{r}
+Est <- predict(GARCH12, n.ahead=250)
+```
+
+```{r}
+w <- GARCH12@fit[["coef"]][2]
+alpha <- GARCH12@fit[["coef"]][3]
+beta <- GARCH12@fit[["coef"]][4] + GARCH12@fit[["coef"]][5]
+VarL <- w / (1 - alpha - beta)
+VolL <- sqrt(VarL)
+VolL
+```
+
+```{r}
+plot(Est$standardDeviation, type="l", col="cornflowerblue", main="Convergencia de volatilidad a largo plazo")
+abline(h=VolL, lty=2, col="indianred")
+```
+
+# Media variable
+
+```{r}
+library(rugarch)
+especificaciones <- ugarchspec(mean.model = list(armaOrder=c(1,0)),
+                               variance.model = list(model="sGARCH", garchOrder=c(1,2)))
+```
+
+```{r}
+GARCH12_movil <- ugarchfit(spec=especificaciones, data=residuos)
+summary(GARCH12_movil)
+GARCH12_movil
+```
+
+```{r}
+Est_NC <- ugarchforecast(GARCH12_movil, n.ahead=100)
+
+plot(Est_NC@forecast[["sigmaFor"]], type="l", col="cornflowerblue")
+abline(h=VolL, lty=2, col="indianred")
+```
+
+```{r}
+plot(Est_NC@forecast[["seriesFor"]], type="l", col="cornflowerblue")
+```
+
+
+
+
+
+
