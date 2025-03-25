@@ -188,5 +188,70 @@ summary(GARCH22)
 
 Del análisis de los indicadores, la parsimonia y la verosimilitud, podemos decir que el modelo GARCH (1,1) es el mejor para esta serie de información.
 
+## Predicciones
+
+### Media constante
+
+Vamos a efectuar algunas prediciones usando el modelo estimado.
+
+```{r}
+Est <- predict(GARCH11, n.ahead=250)
+```
+
+Calcular la varianza y volatilidad de largo plazo
+
+```{r}
+summary(GARCH11)
+```
+
+```{r}
+w <- GARCH11@fit[["coef"]][2]
+alpha <- GARCH11@fit[["coef"]][3]
+beta <- GARCH11@fit[["coef"]][4]
+VarL <- w / (1 - alpha - beta)
+VolL <- sqrt(VarL)
+VolL
+```
+
+```{r}
+plot(Est$standardDeviation, type="l", col="cornflowerblue", main="Convergencia de volatilidad a largo plazo")
+abline(h=VolL, lty=2, col="indianred")
+```
+
+### Media variable
+
+Ahora efectuaremos estimaciones no cosntantes de la media, usando el mimso modelo optimo que ya teniamos.
+
+Para ello recordemos cual fue el modelo ARIMA que estimamos
+
+```{r}
+summary(ARIMA)
+```
+
+```{r}
+library(rugarch)
+especificaciones <- ugarchspec(mean.model = list(armaOrder=c(2,1)),
+                               variance.model = list(model="sGARCH", garchOrder=c(1,1)))
+```
+
+```{r}
+GARCH11_movil <- ugarchfit(spec=especificaciones, data=residuos)
+summary(GARCH11_movil)
+GARCH11_movil
+```
+
+Generar un nuevo conjunto de estimaciones
+
+```{r}
+Est_NC <- ugarchforecast(GARCH11_movil, n.ahead=100)
+
+plot(Est_NC@forecast[["sigmaFor"]], type="l", col="cornflowerblue")
+abline(h=VolL, lty=2, col="indianred")
+```
+
+```{r}
+plot(Est_NC@forecast[["seriesFor"]], type="l", col="cornflowerblue")
+```
+
 
 
