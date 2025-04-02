@@ -1,0 +1,89 @@
+---
+title: "Volatilidad implicita"
+author: "Diego Lozoya"
+date: "2025-03-28"
+output: html_document
+---
+
+Descripción de volatilidad implicita
+
+Hablar del modelo, lo que se ve en la realidad, etc.
+
+# Volatilidad histórica
+
+```{r}
+library(quantmod)
+library(lubridate)
+datos <- new.env()
+clave <- "WALMEX.MX"
+getSymbols(clave, from="2024-01-01", to="2025-03-28", env=datos)
+precio <- datos[[clave]][,6]
+rendimiento <- na.omit(diff(log(precio)))
+sigma <- sd(rendimiento) * sqrt(252)
+sigma
+```
+
+# Volatilidad implícita
+
+## 3 meses
+
+Calcular la volatilidad implicita de una opción que tiene las siguientes características:
+
+```{r}
+So <- 58.39
+k <- 63
+r <- 0.09
+t <- 3/12
+d <- 0
+c <- 1.23
+```
+
+Antes es necesario determinar si se cumple el supuesto básico que hay detras de Black-Scholes, el cual establece que para una opción tipo call, el precio mínimo debe ser el siguiente:
+
+$$\text{Precio opción}\geq max(0,S-Ke^{-rT})$$
+```{r}
+ifelse(c>=max(0,So-k+exp(-r*t)), 1, 0)
+```
+
+```{r}
+library(derivmkts)
+
+bscallimpvol(So, k, r, t, d, c)
+```
+
+## 6 meses
+
+```{r}
+So <- 58.39
+k <- 63
+r <- 0.09
+t <- 6/12
+d <- 0
+c <- 2.71
+
+bscallimpvol(So, k, r, t, d, c)
+```
+
+## 9 meses
+
+```{r}
+So <- 58.39
+k <- 63
+r <- 0.09
+t <- 9/12
+d <- 0
+c <- 4.07
+
+bscallimpvol(So, k, r, t, d, c)
+```
+
+
+
+
+
+
+
+
+
+
+
