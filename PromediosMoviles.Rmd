@@ -15,7 +15,7 @@ Estimación de un modelo de promedio movil para estimar la varianza
 
 # Ecuación:
 
-$$\sigma_{t,m}=\sum_{i=1}^m R_{t-i}^2$$
+$$\sigma_{t,m}=\frac{1}{m}\sum_{i=1}^m R_{t-i}^2$$
 
 # Librerías
 
