@@ -1,0 +1,83 @@
+---
+title: "VaR no Param Stocks"
+author: "Diego Lozoya"
+date: "2025-04-08"
+output: html_document
+---
+
+Supongamos que tenemos un portafolio que tiene las siguientes características:
+
+- 300 acciones de PINFRA 
+- 200 acciones de SORIANA
+
+Trabajaremos con una metodología histórica, la cual no asume un comportamiento específico.
+
+El procedimiento de esta metodología consiste en los siguiente:
+
+  1) Calcular valor inicial del portafolio
+  2) Estimar precios futuros de cada uno de los activos que componen al portafolio y con eso determinr valores futuros del portafolio. 
+  3) Encontrar función de pérdidad y ganancias
+  4) Calcular el VaR con la función "percentil"
+
+# 1) Valor inicial del portafolio
+
+```{r}
+library(quantmod)
+claves <- c("PINFRA.MX", "SORIANAB.MX")
+datos <- new.env()
+getSymbols(claves, env = datos, from = "2021-08-04")
+precio_pinfra <- datos[[claves[1]]][, 6]
+precio_soriana <- datos[[claves[2]]][, 6]
+vo <- as.numeric(last(precio_pinfra) * 300 + last(precio_soriana) * 200)
+vo
+```
+
+# 2) Estimar valores futuros del precio, portafolio
+
+Aqui usaremos la metodología de simulación histórica
+
+$$S_t = s_0(1+R_h)$$
+
+$R_h$ es el rendimiento histórico, de modo que tendremos tantas simulaciones como valores históricos de rendimiento
+
+```{r}
+rt_pinfra <-  na.omit(diff(log(precio_pinfra)))
+rt_soriana <- na.omit(diff(log(precio_soriana)))
+precio_fpinfra <- as.numeric(last(precio_pinfra)) * (1 + rt_pinfra)
+precio_fsoriana <- as.numeric(last(precio_soriana)) * (1 + rt_soriana)
+v_futuro <- 300 * precio_fpinfra + 200 * precio_fsoriana
+names(v_futuro) <- "valor_p"
+```
+
+# 3) Calcular la función de pérdidas y ganancias
+
+```{r}
+f_per_gan <- v_futuro-vo
+```
+
+Si el valor es poditivo, significa que en ese escenario estamoss previniendo una ganancia, de lo contrario una pérdida.
+
+```{r}
+hist(f_per_gan, n=100, col="cornflowerblue", main ="Pérdidas y ganancias")
+```
+
+# 4) Calcular el VaR
+
+```{r}
+VaR90 <- quantile(f_per_gan, 0.1)
+VaR95 <- quantile(f_per_gan, 0.05)
+VaR99 <- quantile(f_per_gan, 0.01)
+
+VaR90
+VaR95
+VaR99
+```
+
+```{r}
+hist(f_per_gan, n=100, col="cornflowerblue", main ="Pérdidas y ganancias")
+abline(v=VaR90, col="indianred", lwd=2)
+abline(v=VaR95, col="darkseagreen", lwd=2)
+abline(v=VaR99, col="plum", lwd=2)
+```
+
+
