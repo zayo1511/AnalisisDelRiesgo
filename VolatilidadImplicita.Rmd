@@ -2,12 +2,14 @@
 title: "Volatilidad implicita"
 author: "Diego Lozoya"
 date: "2025-03-28"
-output: html_document
+output: 
+  html_document:
+    theme: darkly
+    toc: true
+    toc_float: true
 ---
 
-Descripción de volatilidad implicita
-
-Hablar del modelo, lo que se ve en la realidad, etc.
+La volatilidad implícita refleja la expectativa del mercado sobre la volatilidad futura, deducida de los precios de opciones usando el modelo de Black-Scholes. En la práctica, varía con el tiempo y suele formar una “sonrisa” o “smirk” al graficarse contra el strike, aumentando ante eventos relevantes o incertidumbre.
 
 # Volatilidad histórica
 
@@ -77,11 +79,34 @@ c <- 4.07
 bscallimpvol(So, k, r, t, d, c)
 ```
 
+# HW11
 
+Par la terea se selecciona al activo `MCD` (McDonalds's) el cual cotiza en NYSE.
 
+```{r}
+So <- 299.83
+r <- 0.0383 # https://home.treasury.gov/resource-center/data-chart-center/interest-rates/TextView?type=daily_treasury_yield_curve&field_tdr_date_value=2025
+t <- 1
+d <- 0
 
+k <- c(250,  260,  270,  280,   290,  300,   310,   320,   330,   340)
+c <- c(71.7, 63.3, 45.9, 43.29, 37.6, 32.25, 27.05, 22.95, 19.25, 15.20)
 
+vol_imp <- numeric(length(k))
 
+for (i in seq_along(k)) {
+  vol_imp[i] <- bscallimpvol(So, k[i], r, t, d, c[i])
+}
+
+vol_imp
+```
+
+```{r}
+plot(k, vol_imp, type="l", col="cornflowerblue", main="Relación strike vs volatilidad implicita")
+abline(v=So, lty=2, col="indianred")
+```
+
+La gráfica muestra una alta volatilidad ante caidas en el precio, pero una estabilidad ante subidas del mismo. Lo que quiere decir que `MCD` muestra un volatilidad implicita con forma "smirk".
 
 
 

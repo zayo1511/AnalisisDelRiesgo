@@ -1,8 +1,15 @@
 ---
 title: "VaR no Param Stocks"
-author: "Diego Lozoya"
+author: "Rolando Fortanell Canedo
+         Luis Eduardo Jiménez del Muro
+         Diego Lozoya Morales
+         Lenin Adair Quezada Gómez"
 date: "2025-04-08"
-output: html_document
+output: 
+  html_document:
+    theme: darkly
+    toc: true
+    toc_float: true
 ---
 
 Supongamos que tenemos un portafolio que tiene las siguientes características:
@@ -80,4 +87,58 @@ abline(v=VaR95, col="darkseagreen", lwd=2)
 abline(v=VaR99, col="plum", lwd=2)
 ```
 
+```{r}
+VaR90/vo
+VaR95/vo
+VaR99/vo
+```
+
+## C-VaR o ES
+
+Esta medid dice el promedio de las pérdidas estimadas que superen el VaR
+
+Por ejemplo ES al 90%
+
+```{r}
+cola90 <- subset(f_per_gan, f_per_gan<VaR90)
+hist(cola90, col="cornflowerblue", n=10)
+mean(cola90)
+```
+
+# Montecarlo
+
+```{r}
+epsilon <- rnorm(100000)
+
+mu_pinfra <- mean(rt_pinfra)
+sigma_pinfra <- sd(rt_pinfra)
+S0_pinfa <- as.numeric(last(precio_pinfra))
+
+mu_soriana <- mean(rt_soriana)
+sigma_soriana <- sd(rt_soriana)
+S0_soriana <- as.numeric(last(precio_soriana))
+
+S_pinfra <- S0_pinfa*exp((mu_pinfra-(1/2)*sigma_pinfra^2)+sigma_pinfra*epsilon)
+S_soriana <- S0_soriana*exp((mu_soriana-(1/2)*sigma_soriana^2)+sigma_soriana*epsilon)
+```
+
+```{r}
+v_futuro <- 300 * S_pinfra + 200 * S_soriana
+f_per_gan <- v_futuro - vo
+
+VaR90 <- quantile(f_per_gan, 0.1)
+VaR95 <- quantile(f_per_gan, 0.05)
+VaR99 <- quantile(f_per_gan, 0.01)
+
+VaR90
+VaR95
+VaR99
+```
+
+```{r}
+hist(f_per_gan, n=100, col="cornflowerblue", main ="Pérdidas y ganancias")
+abline(v=VaR90, col="indianred", lwd=2)
+abline(v=VaR95, col="darkseagreen", lwd=2)
+abline(v=VaR99, col="plum", lwd=2)
+```
 
