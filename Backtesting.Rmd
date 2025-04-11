@@ -1,0 +1,30 @@
+---
+title: "Backtesting"
+author: "Diego Lozoya"
+date: "2025-04-11"
+output: html_document
+---
+
+Vamos a comprar el VaR a 99%
+
+```{r}
+library(quantmod)
+
+VaRP <- -2370
+VarNP <- -2511
+
+claves <- c("PINFRA.MX", "SORIANAB.MX")
+datos <- new.env()
+getSymbols(claves, env = datos, from = "2000-01-01")
+precio_pinfra <- datos[[claves[1]]][, 6]
+precio_soriana <- datos[[claves[2]]][, 6]
+vp_hist <- 300*precio_pinfra + 200*precio_soriana
+names(vp_hist) <- "Valor_porta"
+```
+
+Ganancia o pérdida real observada
+
+```{r}
+g_p <- diff(vp_hist)
+```
+
