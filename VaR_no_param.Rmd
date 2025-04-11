@@ -32,7 +32,7 @@ El procedimiento de esta metodología consiste en los siguiente:
 library(quantmod)
 claves <- c("PINFRA.MX", "SORIANAB.MX")
 datos <- new.env()
-getSymbols(claves, env = datos, from = "2021-08-04")
+getSymbols(claves, env = datos, from = "2021-08-04", to = "2025-04-08")
 precio_pinfra <- datos[[claves[1]]][, 6]
 precio_soriana <- datos[[claves[2]]][, 6]
 vo <- as.numeric(last(precio_pinfra) * 300 + last(precio_soriana) * 200)
