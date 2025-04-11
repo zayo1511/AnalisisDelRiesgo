@@ -1,0 +1,91 @@
+---
+title: "VaR_param"
+author: "Diego Lozoya"
+date: "2025-04-11"
+output: html_document
+---
+
+Supongamos que tenemos un portafolio que tiene las siguientes características:
+
+- 300 acciones de PINFRA 
+- 200 acciones de SORIANA
+
+```{r}
+library(quantmod)
+claves <- c("PINFRA.MX", "SORIANAB.MX")
+datos <- new.env()
+getSymbols(claves, env = datos, from = "2021-08-04", to = "2025-04-08")
+precio_pinfra <- datos[[claves[1]]][, 6]
+precio_soriana <- datos[[claves[2]]][, 6]
+vo <- as.numeric(last(precio_pinfra) * 300 + last(precio_soriana) * 200)
+vo
+```
+
+Calculamos rendimientos
+
+```{r}
+rt_pinfra <-  na.omit(diff(log(precio_pinfra)))
+rt_soriana <- na.omit(diff(log(precio_soriana)))
+```
+
+Matriz de varianza-covarianza
+
+```{r}
+R <- merge.xts(rt_pinfra, rt_soriana)
+covarianza <- cov(R)
+covarianza
+```
+
+Ahora los pesos
+
+```{r}
+wp <- last(precio_pinfra) * 300 / vo
+ws <- last(precio_soriana) * 200 / vo
+w <- as.numeric(c(wp, ws))
+w
+```
+
+Valor de Z
+
+```{r}
+z90 <- qnorm(0.10)
+z95 <- qnorm(0.05)
+z99 <- qnorm(0.01)
+```
+
+Volatilidad del portafolio
+
+(Se debe usar "%" para que sea multiplicación de matrices, como dot o @ en python)
+
+```{r}
+vol_p <- sqrt(w%*%covarianza%*%w)
+```
+
+Calculo de VaR
+
+```{r}
+VaR_90 <- vo * z90 * vol_p
+VaR_95 <- vo * z95 * vol_p
+VaR_99 <- vo * z99 * vol_p
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
