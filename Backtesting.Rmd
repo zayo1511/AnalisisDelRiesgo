@@ -11,7 +11,7 @@ Vamos a comprar el VaR a 99%
 library(quantmod)
 
 VaRP <- -2370
-VarNP <- -2511
+VaRNP <- -2511
 
 claves <- c("PINFRA.MX", "SORIANAB.MX")
 datos <- new.env()
@@ -25,6 +25,28 @@ names(vp_hist) <- "Valor_porta"
 Ganancia o pérdida real observada
 
 ```{r}
-g_p <- diff(vp_hist)
+g_p <- na.omit(diff(vp_hist))
 ```
+
+Contar excepciones (numero de veces que el VaR se quedó por debajo de la pérdida real)
+
+Paramétrico:
+
+```{r}
+BTP <- ifelse(g_p < VaRP, 1, 0)
+#plot(BTP, col="cornflowerblue")
+sum(BTP)/length(BTP)*100
+```
+
+Solamente un 0.17% de las veces históricas el VaR fue superado, lo que indica que el modelo es bueno, ya que si quedó por debajo del 1% de las excepciones.
+
+No paramétrico:
+
+```{r}
+BTP <- ifelse(g_p < VaRNP, 1, 0)
+#plot(BTP, col="cornflowerblue")
+sum(BTP)/length(BTP)*100
+```
+
+Solamente un 0.15% de las veces históricas el VaR fue superado, lo que indica que el modelo es bueno, ya que si quedó por debajo del 1% de las excepciones.
 
