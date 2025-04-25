@@ -1,0 +1,483 @@
+---
+title: "Proyecto Final: Parte 4"
+author: "Rolando Fortanell Canedo<br>
+         Luis Eduardo Jiménez del Muro<br>
+         Diego Lozoya Morales<br>
+         Lenin Adair Quezada Gómez"
+date: "2025-04-25"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    embed-resources: true
+    theme: cerulean
+    highlight: tango
+    code_folding: hide 
+    code-link: true
+editor_options: 
+  markdown: 
+    wrap: 72
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(warning = FALSE, message = FALSE)
+```
+
+# Librerías
+
+```{r}
+suppressPackageStartupMessages(library(quantmod))
+suppressPackageStartupMessages(library(lubridate))
+suppressPackageStartupMessages(library(dplyr))
+suppressPackageStartupMessages(library(fTrading))
+suppressPackageStartupMessages(library(fGarch))
+suppressPackageStartupMessages(library(forecast))
+suppressPackageStartupMessages(library(bizdays))
+suppressPackageStartupMessages(library(tidyr))
+suppressPackageStartupMessages(library(rugarch))
+suppressPackageStartupMessages(library(scales))
+suppressPackageStartupMessages(library(ggplot2))
+```
+
+# Introducción
+
+..........................................................
+Introducción
+..........................................................
+
+# Datos
+
+```{r}
+clave <- "GCC.MX"
+datos <- new.env()
+
+getSymbols(clave, to="2025-04-25", env=datos)
+
+precio <- datos[[clave]][,6]
+rt <- na.omit(diff(log(precio)))
+```
+
+# Medias móviles
+
+..........................................................
+EXPLICACIÓN
+..........................................................
+
+Métricas:
+
+-   **RMSE** Error cuadrático medio
+    $\text{RMSE} = \frac{1}{H}  \sqrt{\sum_{i=1}^{n} (R_i^2-\sigma_i^2)^2}$
+-   **EAMP** Error Absoluto Medio Proporcional
+    $\text{EAMP} = \frac{1}{H} |R_i^2-\sigma^2_i|$
+-   **ECPP** Error cuadrático Promedio Proporcional
+    $\text{ECPP} = \frac{1}{H} (\frac{ R_i^2-\sigma_1^2 }{\sigma_i^2})^2$
+
+```{r}
+rend_2 <- rt^2
+
+var_5 <- SMA(rend_2, n=5+1)
+var_10 <- SMA(rend_2, n=10+1)
+var_20 <- SMA(rend_2, n=20+1)
+var_40 <- SMA(rend_2, n=40+1)
+
+RMSE <- tibble(
+  "M=5"=sqrt(mean(na.omit(rend_2-var_5)^2)),
+  "M=10"=sqrt(mean(na.omit(rend_2-var_10)^2)),
+  "M=20"=sqrt(mean(na.omit(rend_2-var_20)^2)),
+  "M=40"=sqrt(mean(na.omit(rend_2-var_40)^2))
+)
+
+EAMP <- tibble(
+  "M=5"=mean(abs(na.omit(rend_2-var_5))),
+  "M=10"=mean(abs(na.omit(rend_2-var_10))),
+  "M=20"=mean(abs(na.omit(rend_2-var_20))),
+  "M=40"=mean(abs(na.omit(rend_2-var_40)))
+)
+
+w <- merge.xts((na.omit(var_5-rend_2)/na.omit(rend_2))^2,
+               (na.omit(var_10-rend_2)/na.omit(rend_2))^2,
+               (na.omit(var_20-rend_2)/na.omit(rend_2))^2,
+               (na.omit(var_40-rend_2)/na.omit(rend_2))^2)
+w <- subset(w, w$SMA!="Inf")
+
+ECPP <- sqrt(colMeans(na.omit(w)))
+
+tabla_comparativa <- tibble(
+  M = c("M=5", "M=10", "M=20", "M=40"),
+  RMSE = unlist(RMSE),
+  EAMP = unlist(EAMP),
+  ECPP = unlist(ECPP)
+)
+knitr::kable(tabla_comparativa, caption = "Comparación de cada valor M", digits = 6)
+```
+..........................................................
+EXPLICACIÓN DE ELEGIR M=5
+..........................................................
+
+# Modelo EWMA de GCC
+
+## Encontrar el valor óptimo de $\lambda$
+
+```{r}
+# Optimizacion de lambda
+
+var_est <- matrix(0, nrow=nrow(rend_2), ncol=1)
+var_est[1, 1] <- rend_2[1, 1]
+
+l <- seq(0.8, 0.99, by=.01)
+fun_ver <- matrix(0, nrow=nrow(rend_2), ncol=1)
+resultados <- matrix(0, nrow=length(l), ncol=2)
+j <- 0
+
+for (L in l) {
+  for (i in 2:nrow(rend_2)) {
+    var_est[i, 1] <- (1 - L)*rend_2[i-1, 1] + L*var_est[i-1, 1]
+    fun_ver[i, 1] <- (-log(var_est[i, 1]) - rend_2[i, 1]/var_est[i, 1])
+  }
+  j <- j+1
+  resultados[j,1] <- L
+  resultados[j,2] <- sum(fun_ver)
+}
+resultados_df <- as.data.frame(resultados)
+colnames(resultados_df) <- c("lambda", "verosimilitud")
+colnames(resultados) <- c("lambda", "verosimilitud")
+
+Loptimo <- as.numeric(resultados[order(resultados[,"verosimilitud"], decreasing=TRUE)][1])
+print(paste("El valor óptimo de lambda es:", Loptimo))
+```
+
+## Gráfica de la función de verosimilitud vs $\lambda$
+
+```{r}
+# Gráfica
+plot(resultados_df$lambda, resultados_df$verosimilitud, 
+     type = "l", lwd = 2, col = "steelblue",
+     xlab = expression(lambda), 
+     ylab = "Función de Verosimilitud",
+     main = "Verosimilitud vs Lambda")
+
+points(Loptimo, resultados_df$verosimilitud[resultados_df$lambda == Loptimo], 
+       pch = 19, col = "red", cex = 1.5)
+
+abline(v = Loptimo, lty = 2, col = "red")
+
+text(Loptimo, min(resultados_df$verosimilitud), 
+     labels = paste("λ óptimo =", round(Loptimo, 3)),
+     pos = 2, col = "red")
+
+legend("topleft", legend = c("Función de Verosimilitud", "λ óptimo"), 
+       col = c("steelblue", "red"), lty = c(1, 2), pch = c(NA, 19), bty = "n")
+
+grid()
+```
+
+..........................................................
+EXPLICACIÓN DE LA GRÁFICA
+..........................................................
+
+## Modelo EWMA de GCC
+
+$$
+\sigma^2_t = (1 - 0.98) r_{t-1}^2 + 0.98 \sigma^2_{t-1}
+$$
+..........................................................
+EXPLICACIÓN DEL MODELO
+..........................................................
+
+
+# Modelo ARIMA o ARMA del rendimiento de GCC
+
+```{r}
+ARIMA <- auto.arima(rt)
+summary(ARIMA)
+```
+
+## Residuos
+
+```{r}
+residuos <- residuals(ARIMA)
+```
+
+# ARCH/GARCH
+
+## Prueba de efectos ARCH-GARCH
+
+..........................................................
+EXPLICACIÓN DE LA PRUEBA
+..........................................................
+$$Ho:\text{No hay efectos ARCH-GARCH}$$
+$$Ha:\text{Si hay efectos ARCH-GARCH}$$
+
+```{r}
+ArchTest <- function (x, lags=20, demean = FALSE) 
+{
+  # Capture name of x for documentation in the output  
+  xName <- deparse(substitute(x))
+  # 
+  x <- as.vector(x)
+  if(demean) x <- scale(x, center = TRUE, scale = FALSE)
+  #  
+  lags <- lags + 1
+  mat <- embed(x^2, lags)
+  arch.lm <- summary(lm(mat[, 1] ~ mat[, -1]))
+  STATISTIC <- arch.lm$r.squared * length(resid(arch.lm))
+  names(STATISTIC) <- "Chi-squared"
+  PARAMETER <- lags - 1
+  names(PARAMETER) <- "df"
+  PVAL <- 1 - pchisq(STATISTIC, df = PARAMETER)
+  METHOD <- "ARCH LM-test;  Null hypothesis:  no ARCH effects"
+  result <- list(statistic = STATISTIC, parameter = PARAMETER, 
+                 p.value = PVAL, method = METHOD, data.name =
+                   xName)
+  class(result) <- "htest"
+  return(result)
+}
+
+ArchTest(rt)
+```
+
+..........................................................
+EXPLICACIÓN DE RESULTADOS DE LA PRUEBA
+..........................................................
+
+## Modelos ARCH-GARCH
+
+### GARCH(1,1)
+
+```{r}
+GARCH11 <- garchFit(formula=~garch(1,1), data=na.omit(residuos), cond.dist="norm", trace= FALSE)
+summary(GARCH11)
+```
+
+### GARCH(1,2)
+
+```{r}
+GARCH12 <- garchFit(formula=~garch(1,2), data=na.omit(residuos), cond.dist="norm", trace= FALSE)
+summary(GARCH12)
+```
+
+### GARCH(2,1)
+
+```{r}
+GARCH21 <- garchFit(formula=~garch(2,1), data=na.omit(residuos), cond.dist="norm", trace= FALSE)
+summary(GARCH21)
+```
+
+### GARCH(2,2)
+
+```{r}
+GARCH22 <- garchFit(formula=~garch(2,2), data=na.omit(residuos), cond.dist="norm", trace= FALSE)
+summary(GARCH22)
+```
+
+## Elección del modelo
+
+### Comparación de modelos
+
+| Modelo     | Verosimilitud | No. Parámetros | Param. Sig |     AIC |     BIC |
+|:-----------|--------------:|---------------:|-----------:|--------:|--------:|
+| GARCH(1,1) |     11,944.84 |              3 |          3 | -5.1973 | -5.1917 |
+| GARCH(1,2) |     11,951.85 |              4 |          4 | -5.1999 | -5.1929 |
+| GARCH(2,1) |     11,944.46 |              4 |          1 | -5.1967 | -5.1897 |
+| GARCH(2,2) |     11,951.85 |              5 |          2 | -5.1995 | -5.1911 |
+
+..........................................................
+Explicar porque se elige el modelo GARCH(1,2)
+..........................................................
+
+# Comparación de la predicción de los modelos
+
+## Tabla comparativa de las predicciones de los modelos
+
+```{r}
+#-------------------------------------------------------------------------------
+# Crear tabla de comparativa de las predicciones de los modelos
+# 
+predicciones <- data.frame(
+  Fecha = index(rend_2)[index(rend_2) >= as.Date("2025-03-11") & 
+                        index(rend_2) <= as.Date("2025-04-25")],
+  Varianza_Real_GCC = as.numeric(rend_2[index(rend_2) >= as.Date("2025-03-11") & 
+                               index(rend_2) <= as.Date("2025-04-25")])
+)
+
+
+#-------------------------------------------------------------------------------
+# Predicciones de la media móvil de 5 días
+# 
+indices_completos <- index(rend_2)
+valores_completos <- as.numeric(rend_2)
+
+predicciones$`Promedio Movil M=5` <- sapply(1:nrow(predicciones), function(i) {
+  pos_actual <- which(indices_completos == predicciones$Fecha[i])
+  
+  posiciones <- (pos_actual-5):(pos_actual-1)
+  
+  if(all(posiciones >= 1)) {
+    mean(valores_completos[posiciones], na.rm = TRUE)
+  } else {
+    NA
+  }
+})
+
+
+#-------------------------------------------------------------------------------
+# Predicciones del modelo EWMA
+# 
+lambda <- 0.98
+
+# Función que calcula varianza hasta el indice deseado
+varianza_hasta_indice <- function(serie, indice) {
+  if (indice < 1 | indice > length(serie)) {
+    stop("Índice fuera de rango")
+  }
+  
+  (sd(serie[1:indice], na.rm = TRUE))^2
+}
+
+# Estimaciones para cada fecha
+predicciones$`EWMA (0.98)` <- sapply(1:nrow(predicciones), function(i) {
+  pos_actual <- which(indices_completos == predicciones$Fecha[i])
+  
+  if (pos_actual > 1) {
+    var_est <- (1 - lambda) * valores_completos[pos_actual - 1] + lambda * varianza_hasta_indice(rt, pos_actual - 2)
+  } else {
+    NA
+  }
+})
+
+
+#-------------------------------------------------------------------------------
+# Predicciones del GARCH(1,2)
+# 
+# Especificación del modelo GARCH(1,2)
+spec_garch12 <- ugarchspec(
+  variance.model = list(model = "sGARCH", garchOrder = c(1,2)),
+  mean.model = list(armaOrder = c(1,0)),
+  distribution.model = "std"
+)
+
+fecha_inicio_pred <- as.Date("2025-03-11")
+indice_corte <- which(index(rt) == fecha_inicio_pred - 1)
+
+# Función para ajuste y pronóstico rolling
+predicciones$`GARCH(1,2)` <- sapply(1:nrow(predicciones), function(i) {
+  fecha_actual <- predicciones$Fecha[i]
+  indice_actual <- which(index(rt) == fecha_actual)
+  
+  # Datos hasta el día anterior al actual
+  datos_entrenamiento <- residuos[1:(indice_actual-1)]
+  
+  # Ajustar modelo con datos actualizados (refit)
+  fit_actual <- ugarchfit(
+    spec = spec_garch12,
+    data = datos_entrenamiento
+  )
+  
+  # Pronosticar varianza para el día actual
+  pred <- ugarchforecast(fit_actual, n.ahead = 1)
+  sigma(pred)[1]^2
+})
+
+knitr::kable(predicciones, caption = "Comparación de valores reales y predicciones", digits = 6)
+```
+
+..........................................................
+EXPLICACIÓN
+..........................................................
+
+
+```{r}
+predicciones_largo <- predicciones |> 
+  pivot_longer(cols = -Fecha, 
+               names_to = "Modelo", 
+               values_to = "Varianza")
+
+ggplot(predicciones_largo, aes(x = Fecha, y = Varianza, color = Modelo, linetype = Modelo)) +
+  geom_line(linewidth = 0.8) +
+  scale_color_manual(values = c(
+    "Varianza_Real_GCC" = "black",
+    "Promedio Movil M=5" = "steelblue",
+    "EWMA (0.98)" = "darkgreen",
+    "GARCH(1,2)" = "red"
+  )) +
+  scale_linetype_manual(values = c(
+    "Varianza_Real_GCC" = "dashed",
+    "Promedio Movil M=5" = "solid",
+    "EWMA (0.98)" = "solid",
+    "GARCH(1,2)" = "solid"
+  )) +
+  labs(
+    title = "Comparación de Modelos de Predicción de Varianza VS Datos Reales",
+    subtitle = "Período del 11 de marzo al 25 de abril de 2025",
+    x = "Fecha",
+    y = "Varianza (rendimientos al cuadrado)",
+    color = "Modelo",
+    linetype = "Modelo"
+  ) +
+  theme_minimal() +
+  theme(
+    legend.position = "bottom",
+    plot.title = element_text(hjust = 0.5, face = "bold"),
+    plot.subtitle = element_text(hjust = 0.5),
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  ) +
+  scale_x_date(
+    breaks = seq(min(predicciones$Fecha), max(predicciones$Fecha), by = "3 days"),
+    labels = date_format("%d %b")
+  ) +
+  guides(color = guide_legend(nrow = 1), linetype = guide_legend(nrow = 1))
+
+```
+
+..........................................................
+EXPLICACIÓN
+..........................................................
+
+```{r}
+library(dplyr)
+
+# Normalizar cada serie entre 0 y 1
+predicciones_normalizado <- predicciones_largo %>%
+  group_by(Modelo) %>%
+  mutate(Varianza_norm = (Varianza - min(Varianza)) / (max(Varianza) - min(Varianza))) %>%
+  ungroup()
+
+# Gráfico con datos normalizados
+ggplot(predicciones_normalizado, aes(x = Fecha, y = Varianza_norm, color = Modelo)) +
+  geom_line(linewidth = 0.8) +
+  facet_wrap(~Modelo, ncol = 1, scales = "fixed") +
+  scale_color_manual(values = c(
+    "Varianza_Real_GCC" = "black",
+    "Promedio Movil M=5" = "steelblue",
+    "EWMA (0.98)" = "darkgreen",
+    "GARCH(1,2)" = "red"
+  )) +
+  labs(
+    title = "Comparación NORMALIZADA de modelos de predicción de varianza",
+    subtitle = "Período del 11 de marzo al 25 de abril de 2025",
+    x = "Fecha",
+    y = "Varianza Normalizada"
+  ) +
+  theme_minimal() +
+  theme(
+    legend.position = "none",
+    plot.title = element_text(hjust = 0.5, face = "bold"),
+    plot.subtitle = element_text(hjust = 0.5),
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    strip.text = element_text(face = "bold")
+  ) +
+  scale_x_date(
+    breaks = seq(min(predicciones$Fecha), max(predicciones$Fecha), by = "5 days"),
+    labels = date_format("%d %b")
+  ) +
+  scale_y_continuous(labels = scales::percent_format(accuracy = 1))
+```
+..........................................................
+EXPLICACIÓN
+..........................................................
+
+# Conclusión
+
+..........................................................
+Conclusión
+..........................................................
