@@ -41,9 +41,11 @@ suppressPackageStartupMessages(library(ggplot2))
 
 # Introducción
 
-..........................................................
-Introducción
-..........................................................
+En este proyecto se estudiará el comportamiento del riesgo en el activo GCC a partir de sus rendimientos históricos, aplicando diferentes metodologías de estimación de volatilidad. El análisis comenzará evaluando distintas aproximaciones mediante medias móviles, para entender el comportamiento de la varianza a corto y mediano plazo. A partir de ahí, se ajustará un modelo EWMA, optimizando el parámetro de suavizamiento para capturar la persistencia de la volatilidad en el tiempo.
+
+Adicionalmente, se modelará la dinámica de los rendimientos con un ARIMA, y se explorará la presencia de efectos ARCH, abriendo paso a la implementación de modelos GARCH de diferentes órdenes. La comparación de estas alternativas permitirá identificar cuál de ellas ofrece una mejor representación del riesgo de GCC, no solo a través de métricas estadísticas, sino también mediante una evaluación gráfica de las predicciones frente a los datos observados.
+
+Este enfoque integral permitirá construir una visión sólida sobre la naturaleza de la volatilidad en el activo y su relevancia para la gestión de riesgos financieros.
 
 # Datos
 
@@ -59,11 +61,7 @@ rt <- na.omit(diff(log(precio)))
 
 # Medias móviles
 
-..........................................................
-EXPLICACIÓN
-..........................................................
-
-Métricas:
+El primer modelo de varianza que se utiliza es la media movil. Este es un modelo que se utiliza para suavizar los datos y eliminar el ruido. La media movil se calcula tomando el promedio de los rendimientos al cuadrado en una ventana de tiempo determinada. En este caso la ventana de timepo posible a utilizar es de 5, 10, 20 y 40 días. Para decidir cual es la mejor opción, se calulan los errores RMSE, EAMP y ECPP, de la manera:
 
 -   **RMSE** Error cuadrático medio
     $\text{RMSE} = \frac{1}{H}  \sqrt{\sum_{i=1}^{n} (R_i^2-\sigma_i^2)^2}$
@@ -110,11 +108,12 @@ tabla_comparativa <- tibble(
 )
 knitr::kable(tabla_comparativa, caption = "Comparación de cada valor M", digits = 6)
 ```
-..........................................................
-EXPLICACIÓN DE ELEGIR M=5
-..........................................................
+
+En este caso se elige utilizar m=5 ya que al comparar los errores de RMSE, EAMP y ECPP, de los diferentes m como 5,10,20 y 40 vemos que el m=5 es el que tiene menor error en RMSE y EAMP lo cuál para este caso lo hace el mejor valor de la media movil a utilizar.
 
 # Modelo EWMA de GCC
+
+Para elegir el modelo óptimo de EWMA es el que maximice la verosimilitud, ya que la relación entre la verosimilitud y el valor óptimo de λ en un modelo EWMA radica en que la verosimilitud mide qué tan probable es que los datos observados provengan del modelo dado cierto conjunto de parámetros. Un λ óptimo es aquel que maximiza la función de verosimilitud, es decir, el que hace que el modelo explique de la mejor manera posible las observaciones reales. Cuanta mayor verosimilitud se alcanza, mejor es el ajuste del modelo a los datos, porque indica que los errores (innovaciones) son más consistentes con la distribución asumida. En otras palabras, más verosimilitud implica un modelo que captura mejor la dinámica real del proceso, generando predicciones más precisas y confiables.
 
 ## Encontrar el valor óptimo de $\lambda$
 
@@ -151,41 +150,78 @@ print(paste("El valor óptimo de lambda es:", Loptimo))
 ```{r}
 # Gráfica
 plot(resultados_df$lambda, resultados_df$verosimilitud, 
-     type = "l", lwd = 2, col = "steelblue",
+     type = "l", lwd = 2, col = "cornflowerblue",
      xlab = expression(lambda), 
      ylab = "Función de Verosimilitud",
      main = "Verosimilitud vs Lambda")
 
 points(Loptimo, resultados_df$verosimilitud[resultados_df$lambda == Loptimo], 
-       pch = 19, col = "red", cex = 1.5)
+       pch = 19, col = "indianred", cex = 1.5)
 
-abline(v = Loptimo, lty = 2, col = "red")
+abline(v = Loptimo, lty = 2, col = "indianred")
 
 text(Loptimo, min(resultados_df$verosimilitud), 
      labels = paste("λ óptimo =", round(Loptimo, 3)),
-     pos = 2, col = "red")
+     pos = 2, col = "indianred")
 
 legend("topleft", legend = c("Función de Verosimilitud", "λ óptimo"), 
-       col = c("steelblue", "red"), lty = c(1, 2), pch = c(NA, 19), bty = "n")
+       col = c("cornflowerblue", "indianred"), lty = c(1, 2), pch = c(NA, 19), bty = "n")
 
 grid()
 ```
 
-..........................................................
-EXPLICACIÓN DE LA GRÁFICA
-..........................................................
+En la gráfica podemos ver como la función de verosimilitud va creciendo y vemos que llega a su máximo en $\lambda = 0.98$ haciendolo el lambda optimo para el modelo de EWMA.
 
 ## Modelo EWMA de GCC
 
 $$
 \sigma^2_t = (1 - 0.98) r_{t-1}^2 + 0.98 \sigma^2_{t-1}
 $$
-..........................................................
-EXPLICACIÓN DEL MODELO
-..........................................................
-
+Como podemos ver en nuestro modelo de EWMA para GCC, tenemos un lambda de 0.98 al tener un lambda tan alto nos indica que este modelo esta dandole más peso a los datos antiguos que a los recientes y lo hace menos sensible a los cambios actuales en el mercado.
 
 # Modelo ARIMA o ARMA del rendimiento de GCC
+
+Los modelos **ARMA** y **ARIMA** son ampliamente utilizados en el análisis de series de tiempo para modelar y predecir valores futuros en función de observaciones y errores pasados.
+
+## Modelo ARMA (AutoRegressive Moving Average)
+
+Un modelo **ARMA(p, q)** combina dos componentes:
+- Un término **autorregresivo (AR)** de orden $p$, que modela el valor actual de la serie como una función lineal de sus valores pasados.
+- Un término de **media móvil (MA)** de orden $q$, que modela el valor actual como una función de errores pasados.
+
+Se expresa como:
+
+$$
+X_t = c + \sum_{i=1}^{p} \phi_i X_{t-i} + \sum_{j=1}^{q} \theta_j \epsilon_{t-j} + \epsilon_t
+$$
+
+Donde:
+- $X_t$ es el valor de la serie en el tiempo $t$,
+- $\phi_i$ son los coeficientes del componente AR,
+- $\theta_j$ son los coeficientes del componente MA,
+- $\epsilon_t \sim N(0, \sigma^2)$ es ruido blanco.
+
+Los modelos ARMA requieren que la serie sea **estacionaria**, es decir, que su media, varianza y autocorrelación no cambien a lo largo del tiempo.
+
+## Modelo ARIMA (AutoRegressive Integrated Moving Average)
+
+El modelo **ARIMA(p, d, q)** extiende ARMA al incorporar un componente de **diferenciación (I)**, permitiendo trabajar con series **no estacionarias**. Se utiliza cuando la serie presenta tendencias o varianza no constante.
+
+El modelo se escribe como:
+
+$$
+\Delta^d X_t = c + \sum_{i=1}^{p} \phi_i \Delta^d X_{t-i} + \sum_{j=1}^{q} \theta_j \epsilon_{t-j} + \epsilon_t
+$$
+
+Donde:
+- $\Delta^d X_t$ representa la $d$-ésima diferencia de la serie $X_t$,
+- $d$ indica cuántas veces se diferencia la serie para volverla estacionaria.
+
+La identificación adecuada de $p$, $d$ y $q$ se realiza mediante herramientas como la función de autocorrelación (ACF), autocorrelación parcial (PACF) y criterios como AIC o BIC.
+
+Estos modelos son especialmente útiles para **pronósticos**, ya que capturan la dinámica temporal y permiten predecir valores futuros con base en el comportamiento histórico de la serie.
+
+## Prueba
 
 ```{r}
 ARIMA <- auto.arima(rt)
@@ -200,11 +236,49 @@ residuos <- residuals(ARIMA)
 
 # ARCH/GARCH
 
+A diferencia de ARIMA/ARMA, que modelan la **media condicional**, los modelos ARCH y GARCH modelan la **varianza condicional** de una serie de tiempo. Son fundamentales en contextos donde la **volatilidad cambia en el tiempo**, como en datos financieros.
+
+## Modelo ARCH (Autoregressive Conditional Heteroskedasticity)
+
+Propuesto por Engle (1982), el modelo **ARCH(q)** permite que la varianza de los errores dependa de los errores pasados.
+
+$$
+\epsilon_t = \sigma_t z_t, \quad z_t \sim N(0,1)
+$$
+
+$$
+\sigma_t^2 = \alpha_0 + \sum_{i=1}^q \alpha_i \epsilon_{t-i}^2
+$$
+
+Donde:
+- $\sigma_t^2$ es la **varianza condicional** en el tiempo $t$,
+- $\alpha_0 > 0$, $\alpha_i \geq 0$ son parámetros a estimar.
+
+Este modelo permite capturar **agrupamientos de volatilidad**, es decir, periodos de alta o baja varianza consecutivos, comunes en mercados financieros.
+
+---
+
+## Modelo GARCH (Generalized ARCH)
+
+El modelo **GARCH(p, q)**, desarrollado por Bollerslev (1986), generaliza ARCH incorporando términos autoregresivos en la varianza, permitiendo una mejor representación de la persistencia en la volatilidad.
+
+$$
+\sigma_t^2 = \alpha_0 + \sum_{i=1}^q \alpha_i \epsilon_{t-i}^2 + \sum_{j=1}^p \beta_j \sigma_{t-j}^2
+$$
+
+Donde:
+- $\beta_j \geq 0$ son los coeficientes GARCH,
+- La condición $\sum \alpha_i + \sum \beta_j < 1$ garantiza la estabilidad del modelo.
+
+Este modelo es especialmente útil para:
+- Estimar el **riesgo financiero** (e.g., VaR),
+- Modelar **clústeres de volatilidad**,
+- Ajustar intervalos de confianza en presencia de **heterocedasticidad condicional**.
+
 ## Prueba de efectos ARCH-GARCH
 
-..........................................................
-EXPLICACIÓN DE LA PRUEBA
-..........................................................
+Antes de aplicar cualquier tipo de modelo ARCH/GARCH, es necesario realizar una prueba de hipotesis para determinar si la serie temporal presenta efectos ARCH o GARCH. La hipotesis nula es que no hay efectos ARCH-GARCH, es decir que muestra heterocedasticidad, mientras que la hipotesis alternativa es que si hay efectos ARCH-GARCH, es decir que la varianza de la serie no es constante a lo largo del tiempo.
+
 $$Ho:\text{No hay efectos ARCH-GARCH}$$
 $$Ha:\text{Si hay efectos ARCH-GARCH}$$
 
@@ -236,11 +310,23 @@ ArchTest <- function (x, lags=20, demean = FALSE)
 ArchTest(rt)
 ```
 
-..........................................................
-EXPLICACIÓN DE RESULTADOS DE LA PRUEBA
-..........................................................
+Al momento de hacer la prueba obtenemos un p-value el cual es bastante cercano a cero, lo cuál nos dice que al hacer menor a 0.05, se rechaza Ho, por lo tanto si hay efectos GARCH y ARCH para el modelo.
 
 ## Modelos ARCH-GARCH
+
+### ARCH(1)
+
+```{r}
+ARCH1 <- garchFit(formula=~garch(1,0), data=na.omit(residuos), cond.dist="std", trace= FALSE)
+summary(ARCH1)
+```
+
+### ARCH(2)
+
+```{r}
+ARCH1 <- garchFit(formula=~garch(2,0), data=na.omit(residuos), cond.dist="std", trace= FALSE)
+summary(ARCH1)
+```
 
 ### GARCH(1,1)
 
@@ -272,18 +358,22 @@ summary(GARCH22)
 
 ## Elección del modelo
 
+Cuando se ajustan modelos ARCH o GARCH, la verosimilitud mide qué tan bien el modelo explica los datos: un modelo con una mayor verosimilitud es preferible porque representa mejor las observaciones. Sin embargo, sólo maximizar la verosimilitud puede llevar a sobreajustar (usar demasiados parámetros para captar ruido en lugar de la estructura real). Para evitarlo, se usan criterios como el AIC (Akaike Information Criterion) y el BIC (Bayesian Information Criterion), que penalizan la complejidad del modelo. 
+
+Estos criterios combinan la verosimilitud y el número de parámetros: un modelo ideal tiene alta verosimilitud pero pocos parámetros. Por eso, al comparar varios modelos ARCH/GARCH, se elige generalmente el que tenga el AIC o BIC más bajo, buscando un balance entre ajuste y simplicidad.
+
 ### Comparación de modelos
 
 | Modelo     | Verosimilitud | No. Parámetros | Param. Sig |     AIC |     BIC |
 |:-----------|--------------:|---------------:|-----------:|--------:|--------:|
+| ARCH(1)    |     13,282.97 |              3 |          3 | -5.7760 | -5.7704 |
+| ARCH(2)    |     13,927.12 |              4 |          3 | -6.0557 | -6.0487 |
 | GARCH(1,1) |     11,944.84 |              3 |          3 | -5.1973 | -5.1917 |
 | GARCH(1,2) |     11,951.85 |              4 |          4 | -5.1999 | -5.1929 |
 | GARCH(2,1) |     11,944.46 |              4 |          1 | -5.1967 | -5.1897 |
 | GARCH(2,2) |     11,951.85 |              5 |          2 | -5.1995 | -5.1911 |
 
-..........................................................
-Explicar porque se elige el modelo GARCH(1,2)
-..........................................................
+En este caso se elige el modelo GARCH(1,2) ya que comparando las verosimilitudes de los modelos vemos que el GARCH(1,2) y GARCH(2,2) son los mas altos pero el (1,2) tiene 4 parametros siendo los 4 significativos, mientras que el (2,2) tiene 5 parametros pero solo 2 de ellos son significativos es por eso que se elige el modelo GARCH(1,2)
 
 # Comparación de la predicción de los modelos
 
@@ -381,10 +471,9 @@ predicciones$`GARCH(1,2)` <- sapply(1:nrow(predicciones), function(i) {
 knitr::kable(predicciones, caption = "Comparación de valores reales y predicciones", digits = 6)
 ```
 
-..........................................................
-EXPLICACIÓN
-..........................................................
+La tabla anterior compara la varianza real de los rendimientos al cuadrado de GCC con las estimaciones generadas por tres modelos: media móvil (M=5), EWMA (λ = 0.98) y GARCH(1,2). Se observa una tendencia creciente en la varianza a partir del 1 de abril, lo que sugiere un aumento en la volatilidad del activo.
 
+Aunque el modelo EWMA mantiene una estimación relativamente estable, tanto la media móvil como GARCH capturan mejor las fluctuaciones abruptas, especialmente en fechas como el 4 de abril, donde la varianza real se dispara. Sin embargo, el modelo GARCH(1,2) destaca por ajustarse más a los movimientos de la varianza real, mostrando una mayor capacidad para adaptarse a los cambios repentinos en la volatilidad del mercado.
 
 ```{r}
 predicciones_largo <- predicciones |> 
@@ -395,10 +484,10 @@ predicciones_largo <- predicciones |>
 ggplot(predicciones_largo, aes(x = Fecha, y = Varianza, color = Modelo, linetype = Modelo)) +
   geom_line(linewidth = 0.8) +
   scale_color_manual(values = c(
-    "Varianza_Real_GCC" = "black",
-    "Promedio Movil M=5" = "steelblue",
-    "EWMA (0.98)" = "darkgreen",
-    "GARCH(1,2)" = "red"
+    "Varianza_Real_GCC" = "dimgray",
+    "Promedio Movil M=5" = "cornflowerblue",
+    "EWMA (0.98)" = "darkseagreen",
+    "GARCH(1,2)" = "indianred"
   )) +
   scale_linetype_manual(values = c(
     "Varianza_Real_GCC" = "dashed",
@@ -429,13 +518,9 @@ ggplot(predicciones_largo, aes(x = Fecha, y = Varianza, color = Modelo, linetype
 
 ```
 
-..........................................................
-EXPLICACIÓN
-..........................................................
+La gráfica muestra la comparación de la varianza real de los rendimientos al cuadrado de GCC con las estimaciones generadas por los modelos de media móvil (M=5), EWMA (λ = 0.98) y GARCH(1,2). La línea punteada representa la varianza real, mientras que las líneas continuas representan las estimaciones de los modelos.Se puede observar que la varianza real llega a un punto más alto que el resto, mienstras que GARCH(1,2) es el que más se acerca a la varianza real, seguido de la media movil y por último el EWMA.
 
 ```{r}
-library(dplyr)
-
 # Normalizar cada serie entre 0 y 1
 predicciones_normalizado <- predicciones_largo %>%
   group_by(Modelo) %>%
@@ -447,10 +532,10 @@ ggplot(predicciones_normalizado, aes(x = Fecha, y = Varianza_norm, color = Model
   geom_line(linewidth = 0.8) +
   facet_wrap(~Modelo, ncol = 1, scales = "fixed") +
   scale_color_manual(values = c(
-    "Varianza_Real_GCC" = "black",
-    "Promedio Movil M=5" = "steelblue",
-    "EWMA (0.98)" = "darkgreen",
-    "GARCH(1,2)" = "red"
+    "Varianza_Real_GCC" = "dimgray",
+    "Promedio Movil M=5" = "cornflowerblue",
+    "EWMA (0.98)" = "darkseagreen",
+    "GARCH(1,2)" = "indianred"
   )) +
   labs(
     title = "Comparación NORMALIZADA de modelos de predicción de varianza",
@@ -472,12 +557,13 @@ ggplot(predicciones_normalizado, aes(x = Fecha, y = Varianza_norm, color = Model
   ) +
   scale_y_continuous(labels = scales::percent_format(accuracy = 1))
 ```
-..........................................................
-EXPLICACIÓN
-..........................................................
+
+De igual manera, se presenta la comparación de los modelos de predicción de varianza, pero esta vez normalizando cada serie entre 0 y 1. Esto permite observar cómo se comportan los modelos en relación a su propio rango de valores, facilitando la comparación visual entre ellos. De esta manera EWMA y GARCH(1,2) se comportan de manera similar, mientras que la media movil tiene un comportamiento diferente al de los otros dos modelos, ya que refleja los cambios abruptos en la varianza de manera más tardada. La varianza real se comporta de manera similar a la de GARCH(1,2) pero con un rango más amplio.
 
 # Conclusión
 
-..........................................................
-Conclusión
-..........................................................
+En conclusión, esta entrega del proyecto permitió identificar patrones de riesgo en el activo GCC utilizando diferentes métodos de estimación de volatilidad. Analizando los rendimientos logarítmicos diarios, se encontró que una media móvil de 5 días ofrecía una mejor capacidad de seguimiento de la varianza diaria, reflejando de manera más precisa los resultados del corto plazo.
+
+Para modelar la persistencia de la volatilidad, se ajustó un modelo EWMA, donde el valor óptimo de $\lambda = 0.98$ mostró que el riesgo en GCC depende en gran medida de la información reciente. Esta característica llevó a considerar modelos más flexibles que permitieran capturar cambios en el comportamiento de la varianza a lo largo del tiempo. La presencia de efectos ARCH en los residuos de un modelo ARIMA confirmó que la volatilidad no es constante, sino que evoluciona dependiendo de choques anteriores. Dentro de las alternativas evaluadas, el modelo GARCH(1,2) ofreció el mejor ajuste, combinando una alta verosimilitud y parámetros estadísticamente significativos.
+
+Contar con una buena estimación de la volatilidad es fundamental, ya que permite tener más información del riesgo, anticipar escenarios de inestabilidad y mejorar la toma de decisiones en activos, así mismo, los modelos dinámicos como los utilizados en este análisis son herramientas clave para construir estrategias financieras más sólidas frente a la incertidumbre del mercado.

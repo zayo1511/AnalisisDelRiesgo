@@ -1,0 +1,142 @@
+---
+title: "HW14"
+author: "Diego Lozoya"
+date: "2025-04-29"
+output: 
+  html_document:
+    theme: darkly
+    toc: true
+    toc_float: true
+---
+
+# Librerías
+
+```{r}
+library(readxl)
+library(lubridate)
+library(quantmod)
+```
+
+# Funciones
+
+```{r}
+precio_bono <- function(vn, tc, ti, t, m) {
+  # tc tasa cupon anual
+  # m numero de veces al año que se paga el cupón
+  # t vencimiento en años
+  # ti tasa de interes 
+  n <- t * m               
+  c <- vn * tc / m         
+  r <- ti / m               
+  flujos <- rep(c, n)
+  flujos[n] <- flujos[n] + vn  
+  precio <- sum(flujos / (1 + r)^(1:n))
+  duracion_per <- sum((1:n) * (flujos / (1 + r)^(1:n))) / precio
+  return(list(
+    precio = precio,
+    duracion = duracion_per/m
+  ))
+}
+```
+
+# Tasas
+
+## Tasa 5 años
+
+```{r}
+Tasa5 <- read_xlsx("RendimientoBonoTasaFija5anos.xlsx")
+Tasa5$SF43886 <- as.numeric(Tasa5$SF43886)/100
+Tasa5 <- xts(Tasa5$SF43886, order.by = date(Tasa5$Fecha))
+Tasa5 <- to.monthly(Tasa5)[,4]
+```
+
+## Tasa 10 años
+
+```{r}
+Tasa10 <- read_xlsx("RendimientoBonoTasaFija10anos.xlsx")
+Tasa10$SF44071 <- as.numeric(Tasa10$SF44071)/100
+Tasa10 <- xts(Tasa10$SF44071, order.by = date(Tasa10$Fecha))
+Tasa10 <- to.monthly(Tasa10)[,4]
+```
+
+## Empatar tasas
+
+```{r}
+TI <- na.omit(merge.xts(Tasa5, Tasa10))
+Ti5 <- as.numeric(last(TI[,1]))
+Ti10 <- as.numeric(last(TI[,2]))
+```
+
+# Precio bonos
+
+```{r}
+pb5 <- precio_bono(1000000, 0.1, Ti5, 5, 2)[["precio"]]
+pb10 <- precio_bono(500000, 0.15, Ti10, 10, 2)[["precio"]]
+
+pb5
+pb10
+```
+
+# Simulación tasas futuras
+
+```{r}
+rent5 <- diff(log(TI[,1]))
+te5 <- na.omit(Ti5*(1+rent5))
+
+rent10 <- diff(log(TI[,2]))
+te10 <- na.omit(Ti10*(1+rent10))
+```
+
+# Precio de bono con tasas estimadas
+
+```{r}
+pbe5 <- matrix(0, nrow = length(te5), ncol = 1)
+for (i in 1:length(te5)) {
+  pbe5[i,1] <- precio_bono(1000000, 0.1, as.numeric(te5[i,1]), 5, 2)[["precio"]]
+}
+
+pbe10 <- matrix(0, nrow = length(te10), ncol = 1)
+for (i in 1:length(te10)) {
+  pbe10[i,1] <- precio_bono(500000, 0.15, as.numeric(te10[i,1]), 10, 2)[["precio"]]
+}
+
+vi <- pb5 + pb10
+vp <- pbe5 + pbe10
+```
+
+# Funciones de pérdida y ganancia
+
+```{r}
+fpgp <- vp - vi
+#hist(fpgp, n=20, col="cornflowerblue")
+var99 <- quantile(fpgp, 0.01)
+var99
+```
+
+# VaR paramétrico
+
+```{r}
+corr <- cor(na.omit(rent5), na.omit(rent10))
+```
+
+```{r}
+dur5 <- precio_bono(1000000, 0.1, Ti5, 5, 2)[["duracion"]]
+durm5 <- dur5/(1+Ti5)
+var5 <- qnorm(0.01)*sd(na.omit(rent5))*pb5*Ti5*durm5
+
+dur10 <- precio_bono(500000, 0.15, Ti10, 10, 2)[["duracion"]]
+durm10 <- dur10/(1+Ti10)
+var10 <- qnorm(0.01)*sd(na.omit(rent10))*pb10*Ti10*durm10
+```
+
+```{r}
+matriz_var_12 <- matrix(c(var5, var10), nrow=1, ncol=2)
+matriz_cor <- matrix(c(1, corr, corr, 1), nrow=2, ncol=2)
+
+var_p <- sqrt(matriz_var_12 %*% matriz_cor %*% t(matriz_var_12))
+var_p
+```
+
+
+
+
