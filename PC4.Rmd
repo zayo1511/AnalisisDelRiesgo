@@ -1,0 +1,116 @@
+---
+title: "PC4"
+author: "Diego Lozoya"
+date: "2025-05-03"
+output: 
+  html_document:
+    theme: darkly
+    toc: true
+    toc_float: true
+---
+
+# Librerías
+
+```{r}
+suppressPackageStartupMessages(library(lubridate))
+suppressPackageStartupMessages(library(quantmod))
+suppressPackageStartupMessages(library(ragtop))
+```
+
+# Ejercicio a)
+
+```{r}
+So <- 50
+K_c <- 48
+K_p <- 56
+rf <- 0.09
+t <- 1
+sigma <- 0.15
+
+call <- blackscholes(callput = 1, S = So, K = K_c, 
+                     r = rf, time = t, vola = sigma)
+put <- blackscholes(callput = -1, S = So, K = K_p, 
+                    r = rf, time = t, vola = sigma)
+call$Price
+put$Price
+```
+
+# Ejercicio b)
+
+## Simulación $S_T$
+
+```{r}
+n_sims <- 100000
+random <- runif(n_sims, min = 0, max = 1)
+St <- So * exp((rf - (sigma^2)/2) + qnorm(random))
+```
+
+## Valor intrínseco
+
+```{r}
+long_call <- exp(-rf * t) * pmax(St - K_c, 0)
+long_put <- exp(-rf * t) * pmax(K_p - St, 0)
+short_call <- - exp(-rf * t) * pmax(St - K_c, 0)
+short_put <- - exp(-rf * t) * pmax(K_p - St, 0)
+```
+
+## Profit & Loss
+
+```{r}
+long_call_pnl <- long_call - call$Price
+long_put_pnl <- long_put - put$Price
+short_call_pnl <- short_call + call$Price
+short_put_pnl <- short_put + put$Price
+```
+
+## VaR
+
+```{r}
+var95_lc <- quantile(long_call_pnl, 0.05)
+var99_lc <- quantile(long_call_pnl, 0.01)
+
+var95_lp <- quantile(long_put_pnl, 0.05)
+var99_lp <- quantile(long_put_pnl, 0.01)
+
+var95_sc <- quantile(short_call_pnl, 0.05)
+var99_sc <- quantile(short_call_pnl, 0.01)
+
+var95_sp <- quantile(short_put_pnl, 0.05)
+var99_sp <- quantile(short_put_pnl, 0.01)
+
+df_var <- data.frame(
+  Estrategia = c("Long Call", "Long Put", "Short Call", "Short Put"),
+  VaR_95 = c(var95_lc, var95_lp, var95_sc, var95_sp),
+  VaR_99 = c(var99_lc, var99_lp, var99_sc, var99_sp)
+)
+
+df_var
+```
+
+# Ejercicio c)
+
+```{r}
+strangle_pnl <- long_call_pnl + long_put_pnl
+
+var95_strangle <- quantile(strangle_pnl, 0.05)
+var99_strangle <- quantile(strangle_pnl, 0.01)
+
+data.frame(
+  Estrategia = "Long Strangle",
+  VaR_95 = var95_strangle,
+  VaR_99 = var99_strangle
+)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
