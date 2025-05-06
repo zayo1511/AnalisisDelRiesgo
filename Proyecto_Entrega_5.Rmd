@@ -49,7 +49,7 @@ g_p <- na.omit(diff(vp_hist))
 rt_gcc <-  na.omit(diff(log(precio_gcc)))
 rt_gfnorteo <- na.omit(diff(log(precio_gfnorteo)))
 
-vo
+print(paste("Valor de portafolio actual:", round(vo, 2)))
 ```
 
 ===HABLAR SOBRE VALOR DEL PORTAFOLIO CON 100 ACCIONES DE CADA ACTIVO===
@@ -75,24 +75,24 @@ hist(f_per_gan, n=100, col="cornflowerblue", main ="Pérdidas y ganancias")
 
 ===COMENTAR ACERCA DE LA FUNCIÓN DE PÉRDIDAS Y GANANCIAS===
 
-## Cáluclo de VaR a 1 día
+## Cáluclo de VaR no paramétrico a 1 día
 
 ```{r}
 VaR90 <- quantile(f_per_gan, 0.1)
 VaR95 <- quantile(f_per_gan, 0.05)
 VaR99 <- quantile(f_per_gan, 0.01)
 
-VaR90
-VaR95
-VaR99
+print(paste("VaR 90%:", round(VaR90, 2)))
+print(paste("VaR 95%:", round(VaR95, 2)))
+print(paste("VaR 99%:", round(VaR99, 2)))
 ```
 
 ```{r}
 hist(f_per_gan, n=100, col="cornflowerblue", main ="Pérdidas y ganancias")
 
-abline(v=VaR90, col="indianred", lwd=2)
-abline(v=VaR95, col="darkseagreen", lwd=2)
-abline(v=VaR99, col="plum", lwd=2)
+abline(v=VaR90, col="indianred", lwd=2.5)
+abline(v=VaR95, col="darkseagreen", lwd=2.5)
+abline(v=VaR99, col="plum", lwd=2.5)
 
 legend("topright", 
        legend = c(
@@ -108,7 +108,7 @@ legend("topright",
 
 ===COMENTAR ACERCA DE LOS VALORES DE VAR===
 
-## VaR a diferentes horizontes
+## VaR no paramétrico a diferentes horizontes
 
 ```{r}
 horizontes <- c(1, 5, 10, 20)
@@ -123,8 +123,7 @@ df_var <- data.frame(
   VaR_95 = VaRs95,
   VaR_99 = VaRs99
 )
-
-df_var
+knitr::kable(df_var, caption = "VaR no paramétrico a diferentes horizontes", digits = 6)
 ```
 
 ===COMENTAR ACERCA DE LOS VALORES DE VAR A DIFERENTES HORIZONTES===
@@ -140,9 +139,9 @@ var_sup_90 <- (sum(BTP90)/length(BTP90))*100
 var_sup_95 <- (sum(BTP95)/length(BTP95))*100
 var_sup_99 <- (sum(BTP99)/length(BTP99))*100
 
-var_sup_90
-var_sup_95
-var_sup_99
+print(paste0("Probabilidad de superación VaR 90%: ", round(var_sup_90, 2), "%"))
+print(paste0("Probabilidad de superación VaR 95%: ", round(var_sup_95, 2), "%"))
+print(paste0("Probabilidad de superación VaR 99%: ", round(var_sup_99, 2), "%"))
 ```
 
 ===TODOS SON BUENOS VAR PORQUE ESTÁN POR DEBAJO DEL ALPHA CORRESPONDIENTE===
@@ -151,25 +150,33 @@ var_sup_99
 
 ===HABLAR SOBRE VAR PARAMÉTRICO===
 
-## Covarianza, pesos y volatilidad del portafolio
+## Matriz de Covarianza
 
 ```{r}
 R <- merge.xts(rt_gcc, rt_gfnorteo)
 covarianza <- cov(R)
-covarianza
+knitr::kable(covarianza, caption = "Matriz de covarianza", digits = 6)
+```
 
+## Vector de pesos
+
+```{r}
 w_gcc <- last(precio_gcc) * 100 / vo
 w_gfnorteo <- last(precio_gfnorteo) * 100 / vo
 w <- as.numeric(c(w_gcc, w_gfnorteo))
-w
+print(w)
+```
 
+## Volatilidad del portafolio
+
+```{r}
 vol_p <- sqrt(w%*%covarianza%*%w)
-vol_p
+print(as.numeric(vol_p))
 ```
 
 ===HABLAR SOBRE MATRIZ DE COVARIANZA, PESOS DE ACTIVOS Y VOLATILIDAD DEL PORTAFOLIO===
 
-## Cálculo de VaR a 1 día
+## Cálculo de VaR paramétrico a 1 día
 
 ```{r}
 z90 <- qnorm(0.10)
@@ -180,14 +187,14 @@ VaR90 <- vo * z90 * vol_p
 VaR95 <- vo * z95 * vol_p
 VaR99 <- vo * z99 * vol_p
 
-VaR90
-VaR95
-VaR99
+print(paste("VaR 90%:", round(VaR90, 2)))
+print(paste("VaR 95%:", round(VaR95, 2)))
+print(paste("VaR 99%:", round(VaR99, 2)))
 ```
 
 ===COMENTAR ACERCA DE LOS VALORES DE VAR===
 
-## VaR a diferentes horizontes
+## VaR paramétrico a diferentes horizontes
 
 ```{r}
 horizontes <- c(1, 5, 10, 20)
@@ -202,8 +209,7 @@ df_var <- data.frame(
   VaR_95 = VaRs95,
   VaR_99 = VaRs99
 )
-
-df_var
+knitr::kable(df_var, caption = "VaR paramétrico a diferentes horizontes", digits = 6)
 ```
 
 ===COMENTAR ACERCA DE LOS VALORES DE VAR A DIFERENTES HORIZONTES===
@@ -219,22 +225,21 @@ var_sup_90 <- (sum(BTP90)/length(BTP90))*100
 var_sup_95 <- (sum(BTP95)/length(BTP95))*100
 var_sup_99 <- (sum(BTP99)/length(BTP99))*100
 
-var_sup_90
-var_sup_95
-var_sup_99
+print(paste0("Probabilidad de superación VaR 90%: ", round(var_sup_90, 2), "%"))
+print(paste0("Probabilidad de superación VaR 95%: ", round(var_sup_95, 2), "%"))
+print(paste0("Probabilidad de superación VaR 99%: ", round(var_sup_99, 2), "%"))
 ```
 
 ===TODOS SON BUENOS VAR PORQUE ESTÁN POR DEBAJO DEL ALPHA CORRESPONDIENTE===
 
 # Portafolio de mínimo VaR
 
-## Pesos 
-
 ===PESOS ÓPTIMOS CON LA FÓRMULA:===
 
 $$w_1 = \frac{2\sigma_2^2 - 2\sigma_{12}}{2\sigma_1^2 + 2\sigma_2^2 - 4\sigma_{12}}$$
 
 $$w_2 = 1 - w_1$$
+## Pesos 
 
 ```{r}
 var_gcc <- covarianza[1, 1]
@@ -244,13 +249,13 @@ cov_gcc_gfnorteo <- covarianza[1, 2]
 w1 <- (2 * var_gfnorteo - 2 * cov_gcc_gfnorteo) / (2 * var_gcc + 2 * var_gfnorteo - 4 * cov_gcc_gfnorteo)
 w2 <- 1 - w1
 
-w1
-w2
+print(paste0("Peso GCC: ", round(w1*100, 4), "%"))
+print(paste0("Peso GFNORTEO: ", round(w2*100, 4), "%"))
 ```
 
 ===COMENTAR ACERCA DE LOS PESOS ÓPTIMOS GCC: 54% GFNORTEO: 45%===
 
-## VaR portafolio óptimo
+## VaR del portafolio óptimo a los diferentes niveles de confianza y horizontes
 
 ### Número de acciones
 
@@ -261,62 +266,38 @@ posicion_gfnorteo <- w2 * vo
 shares_gcc <- floor(as.numeric(posicion_gcc / last(precio_gcc)))
 shares_gfnorteo <- floor(as.numeric(posicion_gfnorteo / last(precio_gfnorteo)))
 
-shares_gcc
-shares_gfnorteo
+print(paste0("Número de acciones GCC: ", shares_gcc))
+print(paste0("Número de acciones GFNORTEO: ", shares_gfnorteo))
 ```
 
 ===COMENTAR ACERCA DEL NÚMERO DE ACCIONES QUE SE PUEDEN COMPRAR CON PONDERACIONES ÓPTIMAS===
 
-### Estimación valores futuros y Función de péridas y ganancias
+### Volatilidad del portafolio
 
 ```{r}
-precio_fgcc <- as.numeric(last(precio_gcc)) * (1 + rt_gcc)
-precio_fgfnorteo <- as.numeric(last(precio_gfnorteo)) * (1 + rt_gfnorteo)
+w <- as.numeric(c(w1, w2))
+vol_p <- sqrt(w%*%covarianza%*%w)
 
-v_futuro <- shares_gcc * precio_fgcc + shares_gfnorteo * precio_fgfnorteo
-names(v_futuro) <- "valor_p"
+print(as.numeric(vol_p))
 ```
+
+===HABLAR SOBRE VOLATILIDAD DEL PORTAFOLIO===
+
+### Cálculo de VaR a 1 día
 
 ```{r}
-f_per_gan <- v_futuro-vo
-hist(f_per_gan, n=100, col="cornflowerblue", main ="Pérdidas y ganancias")
+z90 <- qnorm(0.10)
+z95 <- qnorm(0.05)
+z99 <- qnorm(0.01)
+
+VaR90 <- vo * z90 * vol_p
+VaR95 <- vo * z95 * vol_p
+VaR99 <- vo * z99 * vol_p
+
+print(paste("VaR 90%:", round(VaR90, 2)))
+print(paste("VaR 95%:", round(VaR95, 2)))
+print(paste("VaR 99%:", round(VaR99, 2)))
 ```
-
-===COMENTAR ACERCA DE LA FUNCIÓN DE PÉRDIDAS Y GANANCIAS===
-
-### Cáluclo de VaR a 1 día
-
-```{r}
-VaR90 <- quantile(f_per_gan, 0.1)
-VaR95 <- quantile(f_per_gan, 0.05)
-VaR99 <- quantile(f_per_gan, 0.01)
-
-VaR90
-VaR95
-VaR99
-```
-
-```{r}
-hist(f_per_gan, n=100, col="cornflowerblue", main ="Pérdidas y ganancias")
-
-abline(v=VaR90, col="indianred", lwd=2)
-abline(v=VaR95, col="darkseagreen", lwd=2)
-abline(v=VaR99, col="plum", lwd=2)
-
-legend("topright", 
-       legend = c(
-         sprintf("VaR 90%%: %.2f", VaR90),
-         sprintf("VaR 95%%: %.2f", VaR95),
-         sprintf("VaR 99%%: %.2f", VaR99)
-       ),
-       col = c("indianred", "darkseagreen", "plum"), 
-       lty = c(1, 1, 1), 
-       lwd = 2, 
-       bty = "n")
-```
-
-===COMENTAR ACERCA DE LOS VALORES DE VAR===
-
 ### VaR a diferentes horizontes
 
 ```{r}
@@ -332,26 +313,26 @@ df_var <- data.frame(
   VaR_95 = VaRs95,
   VaR_99 = VaRs99
 )
-
-df_var
+knitr::kable(df_var, caption = "VaR paramétrico del portafolio óptimo a diferentes horizontes", digits = 6)
 ```
 
 ===COMENTAR ACERCA DE LOS VALORES DE VAR A DIFERENTES HORIZONTES===
 
+
 ### Backtesting
 
 ```{r}
-BTP90 <- ifelse(g_p < VaR90, 1, 0)
-BTP95 <- ifelse(g_p < VaR95, 1, 0)
-BTP99 <- ifelse(g_p < VaR99, 1, 0)
+BTP90 <- ifelse(g_p < as.numeric(VaR90), 1, 0)
+BTP95 <- ifelse(g_p < as.numeric(VaR95), 1, 0)
+BTP99 <- ifelse(g_p < as.numeric(VaR99), 1, 0)
 
 var_sup_90 <- (sum(BTP90)/length(BTP90))*100
 var_sup_95 <- (sum(BTP95)/length(BTP95))*100
 var_sup_99 <- (sum(BTP99)/length(BTP99))*100
 
-var_sup_90
-var_sup_95
-var_sup_99
+print(paste0("Probabilidad de superación VaR 90%: ", round(var_sup_90, 2), "%"))
+print(paste0("Probabilidad de superación VaR 95%: ", round(var_sup_95, 2), "%"))
+print(paste0("Probabilidad de superación VaR 99%: ", round(var_sup_99, 2), "%"))
 ```
 
 ===TODOS SON BUENOS VAR PORQUE ESTÁN POR DEBAJO DEL ALPHA CORRESPONDIENTE===
@@ -359,7 +340,6 @@ var_sup_99
 # Conclusiones
 
 ===CONCLUSIONES===
-
 
 
 
